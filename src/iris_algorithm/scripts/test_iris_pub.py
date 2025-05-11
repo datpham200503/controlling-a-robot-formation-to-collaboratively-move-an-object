@@ -13,17 +13,17 @@ def test_random_obstacles_2d(pub=None):
     obstacles = [
         # Obstacle 1
         np.array([
-            [0.2, 0.4, 0.4, 0.2],  # x coordinates
-            [0.2, 0.2, 0.4, 0.4]   # y coordinates
+            [0.5, 0.9, 0.9, 0.5],  # x coordinates
+            [0.75, 0.75, 1.05, 1.05]   # y coordinates
         ]),
         # Obstacle 2
         np.array([
-            [0.8, 1.0, 1.0, 0.8],  # x coordinates
-            [0.8, 0.8, 1.0, 1.0]   # y coordinates
+            [2.9, 3.3, 3.3, 2.9],  # x coordinates
+            [3.05, 3.05, 3.35, 3.35]   # y coordinates
         ])
     ]
     
-    start = np.array([0.75, 0.25])
+    start = np.array([1.9, 0.9])
 
     region, debug = irispy.inflate_region(obstacles, start, bounds=bounds, return_debug_data=True)
 

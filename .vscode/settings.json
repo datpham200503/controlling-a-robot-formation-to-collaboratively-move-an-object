@@ -15,5 +15,9 @@
         "rospy",
         "snopt",
         "sntoya"
-    ]
+    ],
+    "files.associations": {
+        "*.ejs": "html",
+        "cmath": "cpp"
+    }
 }

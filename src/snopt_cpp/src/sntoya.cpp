@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
   // Initialize SNOPT
   ToyProb.initialize("", 0);
   ToyProb.setProbName("Toy");
-  // ToyProb.setPrintFile("Toy.out");
+  ToyProb.setPrintFile("Toy.out");
   ToyProb.setSpecsFile("/home/dat/catkin_ws/src/snopt_cpp/config/sntoya.spc");
   ToyProb.setIntParameter("Derivative option", 1);
   ToyProb.setIntParameter("Major Iteration limit", 250);

@@ -34,3 +34,6 @@ target_link_libraries(sntoya ${catkin_LIBRARIES} snopt7_cpp)
 
 add_executable(sntest src/sntest.cpp)
 target_link_libraries(sntest ${catkin_LIBRARIES} snopt7_cpp)
+
+add_executable(snsubcriber_test src/snsubcriber_test.cpp)
+target_link_libraries(snsubcriber_test ${catkin_LIBRARIES} snopt7_cpp)
