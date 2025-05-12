@@ -74,7 +74,7 @@ void objectiveFunction(int* Status, int* n, double x[],
                       double ru[], int* lenru) {
     if (*needF > 0) {
         // Mục tiêu: giảm thiểu khoảng cách đến g(t_1) = (g_x, g_y)
-        double g_x = 2.0, g_y = 2.0; // Vị trí mục tiêu
+        double g_x = 2.0, g_y = 4.0; // Vị trí mục tiêu
         double t_x = x[0], t_y = x[1];
         F[0] = (t_x - g_x) * (t_x - g_x) + (t_y - g_y) * (t_y - g_y); // ||t - g||^2
 
@@ -100,7 +100,7 @@ void objectiveFunction(int* Status, int* n, double x[],
         int g_idx = 0;
 
         // Gradient của hàm mục tiêu
-        double g_x = 2.0, g_y =2.0;
+        double g_x = 2.0, g_y =4.0;
         G[g_idx++] = 2 * (x[0] - g_x); // dF[0]/dt_x
         G[g_idx++] = 2 * (x[1] - g_y); // dF[0]/dt_y
         // G[2] = 0.0; // dF[0]/dtheta
@@ -330,7 +330,7 @@ int main(int argc, char** argv) {
     int lenA = 0; // Không có ràng buộc tuyến tính
     int* iAfun = new int[lenA];
     int* jAvar = new int[lenA];
-    double* A = new double[lenA];
+    double* linearA = new double[lenA];
 
     int lenG = 546; // 91 hàm, mỗi hàm có tối đa 6 gradient (t_x, t_y, theta, theta_1, theta_2, theta_3)
     int* iGfun = new int[lenG];
@@ -395,7 +395,7 @@ int main(int argc, char** argv) {
 
     // Giải bài toán
     int status = ToyProb.solve(Cold, neF, n, ObjAdd, ObjRow, objectiveFunction,
-                               iAfun, jAvar, A, neA,
+                               iAfun, jAvar, linearA, neA,
                                iGfun, jGvar, neG,
                                xlow, xupp, Flow, Fupp,
                                x, xstate, xmul,
@@ -414,7 +414,7 @@ int main(int argc, char** argv) {
     }
 
     // Dọn dẹp
-    delete[] iAfun; delete[] jAvar; delete[] A;
+    delete[] iAfun; delete[] jAvar; delete[] linearA;
     delete[] iGfun; delete[] jGvar;
     delete[] x; delete[] xlow; delete[] xupp;
     delete[] xmul; delete[] xstate;
