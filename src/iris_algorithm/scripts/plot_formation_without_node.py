@@ -88,9 +88,9 @@ def plot_formation(vertices, A, b, obstacles=None, vertices_optimized=None):
     plt.grid(True)
     plt.show()
 
-# Dữ liệu đầu vào
-x = [3.0, 1.0, 0.0, 0.0, 0.0, 0.0]
-x_opt = [1.767260, 3.437587, 0.131232, -1.185040, 1.167100, 0.000000]  # Cập nhật thông số tối ưu
+# Dữ liệu đầu vào (cập nhật từ log ROS)
+x = [1.0, 4.0, 0.0, 0.0, 0.0, 0.0]       # Vị trí và góc quay ban đầu
+x_opt = [2.5, 1.5, 0.0, 0.0, 0.0, 0.0]   # Thông số tối ưu từ log
 
 ru = [
     0.15 * np.cos(0.0), 0.15 * np.sin(0.0),
@@ -101,28 +101,36 @@ ru = [
 ]
 robot_dims = ru[9:11]
 
+# Vùng khả thi mới từ log
 A = np.array([
-    [-0.63227049, -0.77474772],
-    [0.38237612, 0.92400677],
-    [1.0, 0.0],
-    [0.0, 1.0],
-    [-1.0, 0.0],
-    [0.0, -1.0]
+    [ 0.89194486,  0.45214418],
+    [ 0.99999852, -0.00171939],
+    [-0.80947843, -0.58714962],
+    [ 1.0,         0.0],
+    [ 0.0,         1.0],
+    [-1.0,        -0.0],
+    [-0.0,        -1.0]
 ])
-b = np.array([-1.38252855, 3.92711138, 5.0, 5.0, 0.0, 0.0])
+b = np.array([3.96567985, 3.49818946, -1.34503768, 5.0, 5.0, 0.0, 0.0])
 
 obstacles = [
-    np.array([
-        [0.5, 0.9, 0.9, 0.5],
-        [0.75, 0.75, 1.05, 1.05]
-    ]),
-    np.array([
-        [2.9, 3.3, 3.3, 2.9],
-        [3.05, 3.05, 3.35, 3.35]
-    ])
-]
+        # Obstacle 1
+        np.array([
+            [0.5, 0.9, 0.9, 0.5],  # x coordinates
+            [0.75, 0.75, 1.05, 1.05]   # y coordinates
+        ]),
+        # Obstacle 2
+        np.array([
+            [2.9, 3.3, 3.3, 2.9],  # x coordinates
+            [3.05, 3.05, 3.35, 3.35]   # y coordinates
+        ]),
+        np.array([
+            [3.0 + 0.5, 3.0 + 0.9, 3.0 + 0.9, 3.0 + 0.5],  # x coordinates
+            [0.75, 0.75, 1.05, 1.05]   # y coordinates
+        ]),
+    ]
 
-# Vẽ hình
+# Tính và vẽ lại
 vertices = compute_formation_vertices(x, ru, robot_dims)
 vertices_optimized = compute_formation_vertices(x_opt, ru, robot_dims)
 plot_formation(vertices, A, b, obstacles, vertices_optimized=vertices_optimized)

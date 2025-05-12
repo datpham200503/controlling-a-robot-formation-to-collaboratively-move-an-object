@@ -407,10 +407,10 @@ int main(int argc, char** argv) {
     ROS_INFO("t_x = %f, t_y = %f", x[0], x[1]);
     ROS_INFO("theta = %f", x[2]);
     ROS_INFO("theta_1 = %f, theta_2 = %f, theta_3 = %f", x[3], x[4], x[5]);
-    if (nInf == 0 && sInf == 0) {
+    if (status == 1) {
         ROS_INFO("Optimization successful");
     } else {
-        ROS_INFO("Optimization failed: nInf = %d, sInf = %f", nInf, sInf);
+        ROS_INFO("Optimization failed: status = %d", status);
     }
 
     // Dọn dẹp
