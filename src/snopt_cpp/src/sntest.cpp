@@ -310,21 +310,21 @@ int main(int argc, char** argv) {
     int lenru = 11;
 
     // Kiểm tra tính khả thi của điểm khởi tạo
-    vector<double> vertices(30);
-    computeFormationVertices(x, &ru[0], &ru[9], vertices);
-    bool feasible = true;
-    for (int i = 0; i < 15; ++i) {
-        if (!isPointInPolytope(vertices[2*i], vertices[2*i+1])) {
-            ROS_WARN("Initial vertex %d is outside polytope!", i);
-            feasible = false;
-        }
-    }
+    // vector<double> vertices(30);
+    // computeFormationVertices(x, &ru[0], &ru[9], vertices);
+    // bool feasible = true;
+    // for (int i = 0; i < 15; ++i) {
+    //     if (!isPointInPolytope(vertices[2*i], vertices[2*i+1])) {
+    //         ROS_WARN("Initial vertex %d is outside polytope!", i);
+    //         feasible = false;
+    //     }
+    // }
 
-    if (feasible) {
-        ROS_INFO("Initial configuration is feasible");
-    } else {
-        ROS_WARN("Initial configuration is not feasible");
-    }
+    // if (feasible) {
+    //     ROS_INFO("Initial configuration is feasible");
+    // } else {
+    //     ROS_WARN("Initial configuration is not feasible");
+    // }
 
     // Thiết lập Jacobian
     int lenA = 0; // Không có ràng buộc tuyến tính

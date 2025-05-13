@@ -11,15 +11,6 @@
 
 using namespace std;
 
-// Hàm kiểm tra điểm nằm trong vùng lồi
-bool isPointInPolytope(double px, double py, const Eigen::MatrixXd* A, const Eigen::VectorXd* b) {
-    if (!A || !b || A->rows() != b->size()) return false;
-    for (int j = 0; j < A->rows(); ++j) {
-        if ((*A)(j, 0) * px + (*A)(j, 1) * py > (*b)(j)) return false;
-    }
-    return true;
-}
-
 // Hàm tính vị trí các đỉnh của đội hình
 void computeFormationVertices(double* z, double* ru, double* robot_dims, vector<double>& vertices) {
     double t_x = z[0], t_y = z[1], theta = z[2];
@@ -376,18 +367,6 @@ private:
         // Check initial feasibility
         vector<double> vertices(30);
         computeFormationVertices(x_, &ru_[0], &ru_[9], vertices);
-        bool feasible = true;
-        for (int i = 0; i < 15; ++i) {
-            if (!isPointInPolytope(vertices[2*i], vertices[2*i+1], A_.get(), b_.get())) {
-                ROS_WARN("Initial vertex %d is outside polytope!", i);
-                feasible = false;
-            }
-        }
-        if (feasible) {
-            ROS_INFO("Initial configuration is feasible");
-        } else {
-            ROS_WARN("Initial configuration is not feasible");
-        }
 
         // Run SNOPT
         ROS_INFO("Calling SNOPT solve");
