@@ -6,6 +6,7 @@ import cvxpy as cp
 import json
 import time
 from snopt import formation
+from bidijkstra import bidirectional_dijkstra
 from plot_formation import plot_path_planning
 
 def load_config(file_path):
@@ -167,8 +168,41 @@ def process_new_polytope(A_p, b_p, p, G, P, L_P, zinit, iteration):
     
     return True
 
-def shortest_path():
-    pass
+def shortest_path(G, zs, zg):
+    if not G['V'] or not G['E']:
+        return [], []
+
+    # Ánh xạ cấu hình sang chỉ số
+    vertex_to_index = {id(v.tobytes()): i for i, v in enumerate(G['V'])}
+    n = len(G['V'])
+    m = len(G['E'])
+
+    # Chuẩn bị mảng edges và weights
+    edges = np.zeros(2 * m, dtype=np.uint64)
+    weights = np.zeros(m, dtype=np.double)
+    for i, (z1, z2, _) in enumerate(G['E']):
+        idx1 = vertex_to_index[id(z1.tobytes())]
+        idx2 = vertex_to_index[id(z2.tobytes())]
+        edges[2 * i] = idx1
+        edges[2 * i + 1] = idx2
+        weights[i] = np.sqrt((z1[0] - z2[0])**2 + (z1[1] - z2[1])**2)
+
+    # Tìm chỉ số của zs và zg
+    s = vertex_to_index[id(zs.tobytes())]
+    t = vertex_to_index[id(zg.tobytes())]
+
+    # Gọi hàm bidirectional_dijkstra
+    dist, path, path_edges = bidirectional_dijkstra(n, m, edges, weights, s, t)
+
+    if dist < 0 or len(path) == 0:
+        return [], []
+
+    # Chuyển chỉ số đỉnh thành cấu hình
+    T = [G['V'][i] for i in path]
+    # Chuyển chỉ số cạnh thành đa diện
+    polytopes = [(G['E'][i][2][0], G['E'][i][2][1]) for i in path_edges]
+
+    return T, polytopes
 
 def global_path_planning():
     rospy.init_node('global_path_planning_node', anonymous=True)
@@ -258,10 +292,19 @@ def global_path_planning():
             if not success:
                 continue
 
+            T, polytopes = shortest_path(G, zs, zg)
+            if T:
+                rospy.loginfo("Tìm thấy đường khả thi với %d cấu hình", len(T))
+                break
+
+        if not T:
+            rospy.loginfo("Không tìm thấy đường khả thi sau %d vòng lặp", max_iterations)
+            return [], []
+
         plot_path_planning(map_size, initial_config, zg, P, G, obstacles)
 
         rospy.loginfo("Global path planning completed successfully.")
-        return G, P, zs, zg
+        return T, polytopes
 
     except rospy.ROSInterruptException:
         rospy.logerr("Node interrupted")
