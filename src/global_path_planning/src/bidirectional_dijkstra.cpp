@@ -2,177 +2,226 @@
 #include <limits>
 #include <queue>
 #include <vector>
-#include <cmath>
+#include <map>
 
+// Vô cực cho khoảng cách
 constexpr double INF = std::numeric_limits<double>::infinity();
 
-namespace graph {
-namespace bidirectional_dijkstra {
+// Struct cho cạnh
+struct Edge {
+    uint64_t u, v; // Đỉnh đầu, cuối
+    double w;      // Trọng số (khoảng cách Euclidean)
+    uint64_t polytope_idx; // Chỉ số đa diện
+};
 
-void addEdge(std::vector<std::vector<std::pair<uint64_t, double>>> *adj1,
-             std::vector<std::vector<std::pair<uint64_t, double>>> *adj2,
-             uint64_t u, uint64_t v, double w, uint64_t edge_idx) {
-    (*adj1)[u].push_back(std::make_pair(v, w));
-    (*adj2)[v].push_back(std::make_pair(u, w));
-}
+// Struct cho đa diện (giả định đơn giản)
+struct Polytope {
+    uint64_t id; // ID đa diện
+};
 
-double Shortest_Path_Distance(
-    const std::vector<uint64_t> &workset_,
-    const std::vector<std::vector<double>> &distance_,
-    uint64_t *best_vertex) {
-    double distance = INF;
-    *best_vertex = UINT64_MAX;
-    for (uint64_t i : workset_) {
-        if (distance_[0][i] + distance_[1][i] < distance) {
-            distance = distance_[0][i] + distance_[1][i];
-            *best_vertex = i;
+// Struct cho kết quả
+struct PathResult {
+    std::vector<uint64_t> T; // Tập cấu hình
+    std::vector<Polytope> P; // Tập đa diện
+};
+
+// Hàm kiểm tra kết nối giữa z_s và z_g (DFS)
+bool is_connected(const std::vector<std::vector<std::pair<uint64_t, double>>>& adj,
+                  uint64_t z_s, uint64_t z_g, uint64_t n) {
+    std::vector<bool> visited(n, false);
+    std::vector<uint64_t> stack = {z_s};
+    visited[z_s] = true;
+
+    while (!stack.empty()) {
+        uint64_t u = stack.back();
+        stack.pop_back();
+        if (u == z_g) return true;
+        for (const auto& edge : adj[u]) {
+            uint64_t v = edge.first;
+            if (!visited[v]) {
+                visited[v] = true;
+                stack.push_back(v);
+            }
         }
     }
-    return distance;
+    return false;
 }
 
-void ReconstructPath(
-    const std::vector<std::vector<uint64_t>> &parent,
-    const std::vector<std::vector<uint64_t>> &edge_idx,
-    uint64_t s, uint64_t t, uint64_t best_vertex,
-    uint64_t *path, uint64_t *path_edges, uint64_t *path_len) {
-    std::vector<uint64_t> forward_path, forward_edges;
-    std::vector<uint64_t> backward_path, backward_edges;
+// Hàm shortestPath chính
+PathResult shortestPath(uint64_t n, const std::vector<Edge>& edges,
+                        const std::vector<Polytope>& polytopes,
+                        uint64_t z_s, uint64_t z_g) {
+    // Khởi tạo danh sách kề
+    std::vector<std::vector<std::pair<uint64_t, double>>> adj1(n);
+    std::vector<std::vector<std::pair<uint64_t, double>>> adj2(n);
+    std::map<std::pair<uint64_t, uint64_t>, uint64_t> edge_map;
 
-    // Reconstruct forward path from s to best_vertex
-    uint64_t v = best_vertex;
-    while (v != UINT64_MAX && v != s) {
-        forward_path.push_back(v);
-        forward_edges.push_back(edge_idx[0][v]);
-        v = parent[0][v];
-    }
-    if (v == s) {
-        forward_path.push_back(s);
+    // Thêm cạnh
+    for (uint64_t i = 0; i < edges.size(); ++i) {
+        const Edge& e = edges[i];
+        adj1[e.u].push_back({e.v, e.w});
+        adj2[e.v].push_back({e.u, e.w});
+        edge_map[{e.u, e.v}] = i;
     }
 
-    // Reconstruct backward path from t to best_vertex
-    v = best_vertex;
-    while (v != UINT64_MAX && v != t) {
-        backward_path.push_back(v);
-        backward_edges.push_back(edge_idx[1][v]);
-        v = parent[1][v];
-    }
-    if (v == t) {
-        backward_path.push_back(t);
+    // Kiểm tra kết nối
+    if (!is_connected(adj1, z_s, z_g, n)) {
+        return {{}, {}};
     }
 
-    // Combine paths
-    *path_len = 0;
-    // Add forward path in reverse order (from s to best_vertex)
-    for (int64_t i = forward_path.size() - 1; i >= 0; i--) {
-        path[*path_len] = forward_path[i];
-        if (i > 0) {
-            path_edges[*path_len] = forward_edges[i - 1];
-        }
-        (*path_len)++;
-    }
-    // Add backward path (from best_vertex to t, excluding best_vertex)
-    for (size_t i = 1; i < backward_path.size(); i++) {
-        path[*path_len] = backward_path[i];
-        path_edges[*path_len - 1] = backward_edges[i - 1];
-        (*path_len)++;
-    }
-}
-
-double Bidijkstra(std::vector<std::vector<std::pair<uint64_t, double>>> *adj1,
-                  std::vector<std::vector<std::pair<uint64_t, double>>> *adj2,
-                  uint64_t s, uint64_t t,
-                  uint64_t *path, uint64_t *path_edges, uint64_t *path_len) {
-    uint64_t n = adj1->size();
+    // Khởi tạo Dijkstra
     std::vector<std::vector<double>> dist(2, std::vector<double>(n, INF));
     std::vector<std::vector<uint64_t>> parent(2, std::vector<uint64_t>(n, UINT64_MAX));
-    std::vector<std::vector<uint64_t>> edge_idx(2, std::vector<uint64_t>(n, UINT64_MAX));
     std::vector<std::priority_queue<std::pair<double, uint64_t>,
                                    std::vector<std::pair<double, uint64_t>>,
                                    std::greater<std::pair<double, uint64_t>>>> pq(2);
     std::vector<uint64_t> workset;
     std::vector<bool> visited(n, false);
 
-    pq[0].push(std::make_pair(0.0, s));
-    dist[0][s] = 0.0;
-    pq[1].push(std::make_pair(0.0, t));
-    dist[1][t] = 0.0;
+    pq[0].push({0.0, z_s});
+    dist[0][z_s] = 0.0;
+    pq[1].push({0.0, z_g});
+    dist[1][z_g] = 0.0;
 
     uint64_t best_vertex = UINT64_MAX;
+    double shortest_dist = INF;
 
-    while (true) {
-        if (pq[0].empty()) break;
-        uint64_t currentNode = pq[0].top().second;
-        double currentDist = pq[0].top().first;
-        pq[0].pop();
+    // Bidirectional Dijkstra
+    while (!pq[0].empty() || !pq[1].empty()) {
+        if (!pq[0].empty()) {
+            uint64_t u = pq[0].top().second;
+            double d = pq[0].top().first;
+            pq[0].pop();
+            for (const auto& edge : adj1[u]) {
+                uint64_t v = edge.first;
+                double w = edge.second;
+                if (d + w < dist[0][v]) {
+                    dist[0][v] = d + w;
+                    parent[0][v] = u;
+                    pq[0].push({dist[0][v], v});
+                }
+            }
+            workset.push_back(u);
+            if (visited[u]) {
+                for (uint64_t v : workset) {
+                    if (dist[0][v] + dist[1][v] < shortest_dist) {
+                        shortest_dist = dist[0][v] + dist[1][v];
+                        best_vertex = v;
+                    }
+                }
+                if (shortest_dist < INF) break;
+            }
+            visited[u] = true;
+        }
 
-        for (size_t i = 0; i < (*adj1)[currentNode].size(); i++) {
-            auto edge = (*adj1)[currentNode][i];
-            uint64_t nextNode = edge.first;
-            double weight = edge.second;
-            if (currentDist + weight < dist[0][nextNode]) {
-                dist[0][nextNode] = currentDist + weight;
-                parent[0][nextNode] = currentNode;
-                edge_idx[0][nextNode] = i;
-                pq[0].push(std::make_pair(dist[0][nextNode], nextNode));
+        if (!pq[1].empty()) {
+            uint64_t u = pq[1].top().second;
+            double d = pq[1].top().first;
+            pq[1].pop();
+            for (const auto& edge : adj2[u]) {
+                uint64_t v = edge.first;
+                double w = edge.second;
+                if (d + w < dist[1][v]) {
+                    dist[1][v] = d + w;
+                    parent[1][v] = u;
+                    pq[1].push({dist[1][v], v});
+                }
             }
-        }
-        workset.push_back(currentNode);
-        if (visited[currentNode]) {
-            double dist = Shortest_Path_Distance(workset, dist, &best_vertex);
-            if (dist < INF) {
-                ReconstructPath(parent, edge_idx, s, t, best_vertex, path, path_edges, path_len);
-                return dist;
+            workset.push_back(u);
+            if (visited[u]) {
+                for (uint64_t v : workset) {
+                    if (dist[0][v] + dist[1][v] < shortest_dist) {
+                        shortest_dist = dist[0][v] + dist[1][v];
+                        best_vertex = v;
+                    }
+                }
+                if (shortest_dist < INF) break;
             }
+            visited[u] = true;
         }
-        visited[currentNode] = true;
-
-        if (pq[1].empty()) break;
-        currentNode = pq[1].top().second;
-        currentDist = pq[1].top().first;
-        pq[1].pop();
-
-        for (size_t i = 0; i < (*adj2)[currentNode].size(); i++) {
-            auto edge = (*adj2)[currentNode][i];
-            uint64_t nextNode = edge.first;
-            double weight = edge.second;
-            if (currentDist + weight < dist[1][nextNode]) {
-                dist[1][nextNode] = currentDist + weight;
-                parent[1][nextNode] = currentNode;
-                edge_idx[1][nextNode] = i;
-                pq[1].push(std::make_pair(dist[1][nextNode], nextNode));
-            }
-        }
-        workset.push_back(currentNode);
-        if (visited[currentNode]) {
-            double dist = Shortest_Path_Distance(workset, dist, &best_vertex);
-            if (dist < INF) {
-                ReconstructPath(parent, edge_idx, s, t, best_vertex, path, path_edges, path_len);
-                return dist;
-            }
-        }
-        visited[currentNode] = true;
     }
-    *path_len = 0;
-    return -1.0;
+
+    if (best_vertex == UINT64_MAX) {
+        return {{}, {}};
+    }
+
+    // Tái tạo đường đi
+    std::vector<uint64_t> forward_path, backward_path;
+    uint64_t v = best_vertex;
+    while (v != UINT64_MAX && v != z_s) {
+        forward_path.push_back(v);
+        v = parent[0][v];
+    }
+    if (v == z_s) forward_path.push_back(z_s);
+
+    v = best_vertex;
+    while (v != UINT64_MAX && v != z_g) {
+        backward_path.push_back(v);
+        v = parent[1][v];
+    }
+    if (v == z_g) backward_path.push_back(z_g);
+
+    std::vector<uint64_t> T;
+    for (int64_t i = forward_path.size() - 1; i >= 0; i--) {
+        T.push_back(forward_path[i]);
+    }
+    for (size_t i = 1; i < backward_path.size(); i++) {
+        T.push_back(backward_path[i]);
+    }
+
+    // Lấy đa diện P
+    std::vector<Polytope> P;
+    for (size_t i = 1; i < T.size(); i++) {
+        auto it = edge_map.find({T[i-1], T[i]});
+        if (it != edge_map.end()) {
+            uint64_t edge_idx = it->second;
+            uint64_t poly_idx = edges[edge_idx].polytope_idx;
+            if (poly_idx < polytopes.size()) {
+                P.push_back(polytopes[poly_idx]);
+            }
+        }
+    }
+
+    return {T, P};
 }
 
-} // namespace bidirectional_dijkstra
-} // namespace graph
-
+// Giao diện extern "C" cho ctypes
 extern "C" {
-double bidirectional_dijkstra(uint64_t n, uint64_t m, uint64_t* edges, double* weights, uint64_t s, uint64_t t,
-                             uint64_t* path, uint64_t* path_edges, uint64_t* path_len) {
-    std::vector<std::vector<std::pair<uint64_t, double>>> adj1(n);
-    std::vector<std::vector<std::pair<uint64_t, double>>> adj2(n);
+    // Hàm trả về con trỏ đến PathResult
+    void shortest_path(uint64_t n, // Số đỉnh
+                       uint64_t m, // Số cạnh
+                       uint64_t* edge_data, // Mảng [u1, v1, u2, v2, ...]
+                       double* weights, // Mảng trọng số
+                       uint64_t* polytope_ids, // Mảng chỉ số đa diện
+                       uint64_t z_s, // Đỉnh bắt đầu
+                       uint64_t z_g, // Đỉnh kết thúc
+                       uint64_t* T_out, // Mảng đầu ra cho T
+                       uint64_t* P_out, // Mảng đầu ra cho P
+                       uint64_t* T_len, // Độ dài T
+                       uint64_t* P_len) { // Độ dài P
+        // Tạo vector cạnh
+        std::vector<Edge> edges(m);
+        for (uint64_t i = 0; i < m; ++i) {
+            edges[i] = {edge_data[2*i], edge_data[2*i+1], weights[i], polytope_ids[i]};
+        }
 
-    for (uint64_t i = 0; i < m; ++i) {
-        uint64_t u = edges[2 * i];
-        uint64_t v = edges[2 * i + 1];
-        double w = weights[i];
-        graph::bidirectional_dijkstra::addEdge(&adj1, &adj2, u, v, w, i);
+        // Tạo vector đa diện
+        std::vector<Polytope> polytopes(m);
+        for (uint64_t i = 0; i < m; ++i) {
+            polytopes[i] = {polytope_ids[i]};
+        }
+
+        // Gọi shortestPath
+        PathResult result = shortestPath(n, edges, polytopes, z_s, z_g);
+
+        // Ghi kết quả
+        *T_len = result.T.size();
+        *P_len = result.P.size();
+        for (uint64_t i = 0; i < *T_len; ++i) {
+            T_out[i] = result.T[i];
+        }
+        for (uint64_t i = 0; i < *P_len; ++i) {
+            P_out[i] = result.P[i].id;
+        }
     }
-
-    return graph::bidirectional_dijkstra::Bidijkstra(&adj1, &adj2, s, t, path, path_edges, path_len);
-}
 }
