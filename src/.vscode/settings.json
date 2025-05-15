@@ -1,8 +1,11 @@
 {
-    "python.autoComplete.extraPaths": [
-        "/opt/ros/noetic/lib/python3/dist-packages"
-    ],
-    "python.analysis.extraPaths": [
-        "/opt/ros/noetic/lib/python3/dist-packages"
-    ]
+  "python.analysis.extraPaths": [
+    "/home/plg/iris-distro/build/install/lib/python3.8/dist-packages"
+  ],
+  "python.autoComplete.extraPaths": [
+    "/home/plg/catkin_ws/devel/lib/python3/dist-packages",
+    "/opt/ros/noetic/lib/python3/dist-packages",
+    "/home/plg/catkin_ws/src/global_path_planning/scripts",
+    "/home/plg/iris-distro/build/install/lib/python3.8/dist-packages"
+  ]
 }

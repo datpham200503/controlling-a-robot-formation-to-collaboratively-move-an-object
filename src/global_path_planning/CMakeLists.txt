@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(snopt_cpp)
+project(global_path_planning)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
@@ -29,14 +29,11 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(sntoya src/sntoya.cpp)
-target_link_libraries(sntoya ${catkin_LIBRARIES} snopt7_cpp)
+catkin_install_python(
+  PROGRAMS 
+    scripts/global_path_planning.py
+    scripts/plot_global_path.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
-add_executable(sntest src/sntest.cpp)
-target_link_libraries(sntest ${catkin_LIBRARIES} snopt7_cpp)
-
-add_executable(snsubcriber_test src/snsubcriber_test.cpp)
-target_link_libraries(snsubcriber_test ${catkin_LIBRARIES} snopt7_cpp)
-
-add_executable(sntest_sub src/sntest_sub.cpp)
-target_link_libraries(sntest_sub ${catkin_LIBRARIES} snopt7_cpp)
+# add_executable(sntoya src/sntoya.cpp)
+# target_link_libraries(sntoya ${catkin_LIBRARIES} snopt7_cpp)

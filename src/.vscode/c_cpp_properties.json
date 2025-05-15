@@ -6,8 +6,8 @@
         "limitSymbolsToIncludedHeaders": false
       },
       "includePath": [
+        "/home/plg/catkin_ws/devel/include/**",
         "/opt/ros/noetic/include/**",
-        "/home/dat/catkin_ws/src/beginner_tutorials/include/**",
         "/usr/include/**"
       ],
       "name": "ROS",
