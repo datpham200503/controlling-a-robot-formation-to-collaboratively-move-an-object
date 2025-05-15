@@ -21,9 +21,9 @@ def convert_obstacles_to_numpy(obstacles):
         converted_obstacles.append(coords)
     return converted_obstacles
 
-def save_path_to_json(T, polytopes, file_path):
+def save_path_to_json(T, polytopes, G, file_path):
     """
-    Save T and polytopes to a JSON file.
+    Save T, polytopes, and corresponding z values to a JSON file.
     """
     try:
         # Ensure T is a list of Python integers
@@ -51,17 +51,26 @@ def save_path_to_json(T, polytopes, file_path):
                 "A": A_list,
                 "b": b_list
             })
+        # Convert z values corresponding to T
+        z_values = []
+        for idx in T:
+            z = G['V'][idx]
+            if isinstance(z, np.ndarray) and z.size > 0:
+                z_list = z.tolist()
+            else:
+                z_list = []
+            z_values.append(z_list)
         # Create data dictionary
         data = {
             "T": T,
-            "polytopes": polytopes_serializable
+            "polytopes": polytopes_serializable,
+            "z_values": z_values
         }
-        # Log data for debugging
-        # rospy.loginfo("Saving path data to %s: T=%s, polytopes=%s", file_path, T, polytopes_serializable)
         # Write to JSON file
         with open(file_path, 'w') as f:
             json.dump(data, f, indent=4)
         rospy.loginfo("Saved path to %s", file_path)
+        rospy.loginfo("G: %s", G)
     except Exception as e:
         rospy.logerr("Failed to save path to %s: %s", file_path, str(e))
         raise  # Re-raise for debugging
@@ -111,46 +120,46 @@ def global_path_planning():
         is_non_empty, A_inter, b_inter = intersect_polytopes(A_s, b_s, A_g, b_g)
         rospy.loginfo("Giao P_s ∩ P_g: is_non_empty=%s, A_inter shape=%s", 
                       is_non_empty, A_inter.shape if A_inter is not None else None)
-        if is_non_empty:
-            status_sg, z_sg = formation(zinit, start_centroid, A_inter, b_inter)
-            if status_sg == 1 and z_sg is not None:
-                z_sg_idx = len(G['V'])
-                G['V'].append(z_sg)
-                weight_s = euclidean_distance(zs, z_sg)
-                weight_g = euclidean_distance(zg, z_sg)
-                G['E'].append({
-                    'z1': G['zs'],
-                    'z2': z_sg_idx,
-                    'weight': weight_s,
-                    'polytope': (A_s, b_s)
-                })
-                G['E'].append({
-                    'z1': z_sg_idx,
-                    'z2': G['zs'],
-                    'weight': weight_s,
-                    'polytope': (A_s, b_s)
-                })
-                G['E'].append({
-                    'z1': z_sg_idx,
-                    'z2': G['zg'],
-                    'weight': weight_g,
-                    'polytope': (A_g, b_g)
-                })
-                G['E'].append({
-                    'z1': G['zg'],
-                    'z2': z_sg_idx,
-                    'weight': weight_g,
-                    'polytope': (A_g, b_g)
-                })
-                L_P[0].append(z_sg_idx)
-                L_P[1].append(z_sg_idx)
-                rospy.loginfo("Thêm cạnh từ P_s ∩ P_g: (%d, %d), (%d, %d)", G['zs'], z_sg_idx, z_sg_idx, G['zg'])
-                T, polytopes = shortest_path_wrapper(G)
-                if len(T) > 0:
-                    rospy.loginfo("Tìm thấy đường khả thi qua P_s ∩ P_g: T=%s", T)
-                    # plot_path_planning(map_size, initial_config, zg, P, G, obstacles)
-                    save_path_to_json(T, polytopes, '/home/dat/catkin_ws/src/global_path_planning/config/global_path.json')
-                    return T, polytopes
+        # if is_non_empty:
+        #     status_sg, z_sg = formation(zinit, start_centroid, A_inter, b_inter)
+        #     if status_sg == 1 and z_sg is not None:
+        #         z_sg_idx = len(G['V'])
+        #         G['V'].append(z_sg)
+        #         weight_s = euclidean_distance(zs, z_sg)
+        #         weight_g = euclidean_distance(zg, z_sg)
+        #         G['E'].append({
+        #             'z1': G['zs'],
+        #             'z2': z_sg_idx,
+        #             'weight': weight_s,
+        #             'polytope': (A_s, b_s)
+        #         })
+        #         G['E'].append({
+        #             'z1': z_sg_idx,
+        #             'z2': G['zs'],
+        #             'weight': weight_s,
+        #             'polytope': (A_s, b_s)
+        #         })
+        #         G['E'].append({
+        #             'z1': z_sg_idx,
+        #             'z2': G['zg'],
+        #             'weight': weight_g,
+        #             'polytope': (A_g, b_g)
+        #         })
+        #         G['E'].append({
+        #             'z1': G['zg'],
+        #             'z2': z_sg_idx,
+        #             'weight': weight_g,
+        #             'polytope': (A_g, b_g)
+        #         })
+        #         L_P[0].append(z_sg_idx)
+        #         L_P[1].append(z_sg_idx)
+        #         rospy.loginfo("Thêm cạnh từ P_s ∩ P_g: (%d, %d), (%d, %d)", G['zs'], z_sg_idx, z_sg_idx, G['zg'])
+        #         T, polytopes = shortest_path_wrapper(G)
+        #         if len(T) > 0:
+        #             rospy.loginfo("Tìm thấy đường khả thi qua P_s ∩ P_g: T=%s", T)
+        #             plot_path_planning(map_size, initial_config, zg, P, G, obstacles)
+        #             save_path_to_json(T, polytopes, '/home/dat/catkin_ws/src/global_path_planning/config/global_path.json')
+        #             return T, polytopes
 
         for iteration in range(max_iterations):
             rospy.loginfo("Vòng lặp %d/%d", iteration + 1, max_iterations)
@@ -167,10 +176,12 @@ def global_path_planning():
 
             # rospy.loginfo("Trước shortest_path_wrapper: G['E']=%s", G['E'])
             T, polytopes = shortest_path_wrapper(G)
+            # rospy.loginfo("Kết quả từ shortest_path_wrapper: T=%s, polytopes=%s", T, polytopes)
             if len(T) > 0:
                 rospy.loginfo("Tìm thấy đường khả thi: T=%s, polytopes=%d", T, len(polytopes))
-                # plot_path_planning(map_size, initial_config, zg, P, G, obstacles)
-                save_path_to_json(T, polytopes, '/home/dat/catkin_ws/src/global_path_planning/config/global_path.json')
+                plot_path_planning(map_size, initial_config, zg, P, G, obstacles)
+                save_path_to_json(T, polytopes, G, '/home/dat/catkin_ws/src/global_path_planning/config/global_path.json')
+                # rospy.loginfo("P = %s", P)
                 return T, polytopes
 
         rospy.loginfo("No feasible path found after %d iterations", max_iterations)

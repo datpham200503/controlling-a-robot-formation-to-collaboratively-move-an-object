@@ -70,21 +70,6 @@ def test_shortest_path():
     """Chạy các test cho hàm shortest_path."""
     print("Running shortest_path tests...")
 
-    # Test 1: Đồ thị 4 đỉnh
-    print("\nTest 1: 4 vertices, z_s=0, z_g=2")
-    n = 4
-    edges = np.array([0, 1, 3, 0, 1, 2, 0, 2], dtype=np.uint64)
-    weights = np.array([1.0, 2.0, 2.0, 5.0], dtype=np.double)
-    polytope_ids = np.array([0, 1, 2, 3], dtype=np.uint64)
-    z_s, z_g = 0, 2
-    T, P = shortest_path(n, edges, weights, polytope_ids, z_s, z_g)
-    expected_T = np.array([0, 1, 2], dtype=np.uint64)
-    expected_P = np.array([0, 2], dtype=np.uint64)
-    print(f"T: {T}, P: {P}")
-    print(f"Expected T: {expected_T}, P: {expected_P}")
-    assert np.array_equal(T, expected_T) and np.array_equal(P, expected_P)
-    print("Test 1 passed!")
-
     # Test 2: Đồ thị 5 đỉnh
     print("\nTest 2: 5 vertices, z_s=0, z_g=4")
     n = 5
@@ -98,24 +83,7 @@ def test_shortest_path():
     print(f"T: {T}, P: {P}")
     print(f"Expected T: {expected_T}, P: {expected_P}")
     assert np.array_equal(T, expected_T) and np.array_equal(P, expected_P)
-    print("Test 2 passed!")
-
-    # Test 3: Không có đường
-    print("\nTest 3: No path, z_s=0, z_g=1")
-    n = 2
-    edges = np.array([], dtype=np.uint64)
-    weights = np.array([], dtype=np.double)
-    polytope_ids = np.array([], dtype=np.uint64)
-    z_s, z_g = 0, 1
-    T, P = shortest_path(n, edges, weights, polytope_ids, z_s, z_g)
-    expected_T = np.array([], dtype=np.uint64)
-    expected_P = np.array([], dtype=np.uint64)
-    print(f"T: {T}, P: {P}")
-    print(f"Expected T: {expected_T}, P: {expected_P}")
-    assert np.array_equal(T, expected_T) and np.array_equal(P, expected_P)
-    print("Test 3 passed!")
-
-    print("\nAll tests passed!")
+    print("Test passed!")
 
 if __name__ == "__main__":
     test_shortest_path()

@@ -32,6 +32,7 @@ include_directories(
 catkin_install_python(
   PROGRAMS 
     scripts/global_path_planning.py
+    scripts/plot_global_path.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 # add_executable(sntoya src/sntoya.cpp)

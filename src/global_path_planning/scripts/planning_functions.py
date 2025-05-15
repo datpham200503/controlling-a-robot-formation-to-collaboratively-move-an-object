@@ -163,29 +163,39 @@ def process_new_polytope(A_p, b_p, p, G, P, L_P, zinit, iteration):
     return True
 
 def shortest_path_wrapper(G):
+    seen_edges = set()
+    filtered_edges = []
+    for edge in G['E']:
+        key = (edge['z1'], edge['z2'])  # giữ hướng
+        if key not in seen_edges:
+            seen_edges.add(key)
+            filtered_edges.append(edge)
+
+    G['E'] = filtered_edges
+    # for i in range(len(G['E'])):
+    #     rospy.loginfo("G['E'][%d]: %s", i, G['E'][i])
+
     n = len(G['V'])
     z_s = G['zs']
     z_g = G['zg']
     m = len(G['E'])
     rospy.loginfo("Số lượng đỉnh: n=%d, Số lượng cạnh: m=%d", n, m)
-    # rospy.loginfo("z_s=%d, z_g=%d", z_s, z_g)
-    # rospy.loginfo("G['E']: %s", G['E'])
-    edges = np.zeros(4 * m, dtype=np.uint64)
-    weights = np.zeros(2 * m, dtype=np.double)
-    polytope_ids = np.zeros(2 * m, dtype=np.uint64)
+    edges = np.zeros(2 * m, dtype=np.uint64)
+    weights = np.zeros(m, dtype=np.double)
+    polytope_ids = np.zeros(m, dtype=np.uint64)
     for i, edge in enumerate(G['E']):
-        edges[4*i] = edge['z1']
-        edges[4*i+1] = edge['z2']
-        edges[4*i+2] = edge['z2']
-        edges[4*i+3] = edge['z1']
-        weights[2*i] = edge['weight']
-        weights[2*i+1] = edge['weight']
-        polytope_ids[2*i] = i
-        polytope_ids[2*i+1] = i
-    rospy.loginfo("n = %d, edges = %s", n, edges)
+        edges[2*i] = edge['z1']
+        edges[2*i+1] = edge['z2']
+        weights[i] = edge['weight']
+        polytope_ids[i] = i
+        rospy.loginfo("edge[%d]: %s", i, edge)
+        # rospy.loginfo("edges: %s", edges)
+
+    rospy.loginfo("Kết quả sau hàm shortest_path_wrapper: n = %d, edges = %s", n, edges)
     T, P_ids = shortest_path(n, edges, weights, polytope_ids, z_s, z_g)
     rospy.loginfo("T=%s, P_ids=%s", T, P_ids)
     polytopes = []
+
     for pid in P_ids:
         if pid < len(G['E']):
             polytopes.append(G['E'][pid]['polytope'])
