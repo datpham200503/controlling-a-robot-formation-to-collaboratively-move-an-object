@@ -92,7 +92,7 @@ def process_new_polytope(A_p, b_p, p, G, P, L_P, zinit, iteration):
     status_p, z = formation(zinit, p, A_p, b_p)
     # rospy.loginfo("Kết quả formation: status_p=%d, z=%s", status_p, z)
     if status_p != 1 or z is None:
-        rospy.loginfo("Không tìm thấy formation hợp lệ cho P_p trong vòng lặp %d", iteration)
+        # rospy.loginfo("Không tìm thấy formation hợp lệ cho P_p trong vòng lặp %d", iteration)
         return False
 
     L_Pp = []
@@ -188,12 +188,12 @@ def shortest_path_wrapper(G):
         edges[2*i+1] = edge['z2']
         weights[i] = edge['weight']
         polytope_ids[i] = i
-        rospy.loginfo("edge[%d]: %s", i, edge)
+        # rospy.loginfo("edge[%d]: %s", i, edge)
         # rospy.loginfo("edges: %s", edges)
 
-    rospy.loginfo("Kết quả sau hàm shortest_path_wrapper: n = %d, edges = %s", n, edges)
+    # rospy.loginfo("Kết quả sau hàm shortest_path_wrapper: n = %d, edges = %s", n, edges)
     T, P_ids = shortest_path(n, edges, weights, polytope_ids, z_s, z_g)
-    rospy.loginfo("T=%s, P_ids=%s", T, P_ids)
+    # rospy.loginfo("T=%s, P_ids=%s", T, P_ids)
     polytopes = []
 
     for pid in P_ids:

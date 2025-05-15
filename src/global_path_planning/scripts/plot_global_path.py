@@ -82,7 +82,7 @@ def plot_path_planning(map_size, z_init, zg, P, G, obstacles , T):
             rect = Polygon(robot_vertices, closed=True, edgecolor=color, facecolor=color, alpha=0.5, zorder=3)
             ax.add_patch(rect)
         ax.plot(z[0], z[1], 'ro', markersize=5, zorder=4)
-        ax.text(z[0], z[1], str(T[idx]), fontsize=20, color='black', ha='right', va='center', zorder=5)
+        # ax.text(z[0], z[1], str(T[idx]), fontsize=20, color='black', ha='right', va='center', zorder=5)
 
     path_x = [z[0] for z in G['V']]
     path_y = [z[1] for z in G['V']]
