@@ -4,107 +4,66 @@ import irispy
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
-from std_msgs.msg import Float64MultiArray, MultiArrayDimension
 
-def test_random_obstacles_2d(pub=None):
+def test_random_obstacles_2d(show=False):
     bounds = irispy.Polyhedron.from_bounds([0, 0], [5, 5])
-    
+    required_containment_pts = [np.array([0.11, 2.5])]
     # Define two fixed obstacles
     obstacles = [
         # Obstacle 1
         np.array([
-            [0.5, 0.9, 0.9, 0.5],  # x coordinates
-            [0.75, 0.75, 1.05, 1.05]   # y coordinates
+            [0.75, 1.15, 1.15, 0.75],
+            [1.75, 1.75, 2.05, 2.05]   # y coordinates
         ]),
         # Obstacle 2
         np.array([
-            [2.9, 3.3, 3.3, 2.9],  # x coordinates
-            [3.05, 3.05, 3.35, 3.35]   # y coordinates
-        ]),
-        np.array([
-            [3.0 + 0.5, 3.0 + 0.9, 3.0 + 0.9, 3.0 + 0.5],  # x coordinates
-            [0.75, 0.75, 1.05, 1.05]   # y coordinates
-        ]),
+            [3.5, 3.9, 3.9, 3.5],
+            [3.05, 3.05, 3.35, 3.35]  # y coordinates
+        ])
     ]
     
-    start = np.array([3.0, 1.0])
+    start = np.array([1.0, 0.5])
 
-    region, debug = irispy.inflate_region(obstacles, start, bounds=bounds, return_debug_data=True)
+    region, debug = irispy.inflate_region(obstacles, start, require_containment=False, required_containment_points=required_containment_pts,
+                                           bounds=bounds, return_debug_data=True)
 
-    # Log and publish the region's polytope inequalities (A and b)
-    A, b = None, None
     try:
         polyhedron = region.getPolyhedron()
-        A = polyhedron.getA()  # Matrix A (n_l x 2)
-        b = polyhedron.getB()  # Vector b (n_l x 1)
+        A = polyhedron.getA()
+        b = polyhedron.getB()
         rospy.loginfo("Region inequalities: A=\n%s\nb=%s", A, b)
-
-        if pub is not None:
-            # Prepare Float64MultiArray for A
-            msg_A = Float64MultiArray()
-            A_flat = A.flatten()  # Flatten A to 1D array
-            msg_A.layout.dim = [
-                MultiArrayDimension(label="rows", size=A.shape[0], stride=A.shape[0] * A.shape[1]),
-                MultiArrayDimension(label="cols", size=A.shape[1], stride=A.shape[1])
-            ]
-            msg_A.data = A_flat.tolist()
-
-            # Prepare Float64MultiArray for b
-            msg_b = Float64MultiArray()
-            msg_b.layout.dim = [
-                MultiArrayDimension(label="rows", size=b.shape[0], stride=b.shape[0])
-            ]
-            msg_b.data = b.tolist()
-
-            # Publish A and b
-            pub.publish(msg_A)
-            pub.publish(msg_b)
-            rospy.loginfo("Published A and b to /iris_polytope")
-
     except AttributeError:
         rospy.loginfo("Region: %s (could not access A and b)", region)
 
-    return A, b
+    # Draw the polytope, ellipsoid, and obstacles
+    polyhedron.draw2d()
+    region.getEllipsoid().draw2d()
+    
+    for obstacle in obstacles:
+        points = list(zip(obstacle[0, :], obstacle[1, :]))
+        polygon = Polygon(points, facecolor='gray', edgecolor='black', zorder=1)
+        plt.gca().add_patch(polygon)
+    
+    plt.gca().set_xlim([0.0, 5.0])
+    plt.gca().set_ylim([0.0, 5.0])
 
-def publish_polytope_callback(event, pub, A, b):
-    if A is not None and b is not None and pub is not None:
-        # Prepare Float64MultiArray for A
-        msg_A = Float64MultiArray()
-        A_flat = A.flatten()
-        msg_A.layout.dim = [
-            MultiArrayDimension(label="rows", size=A.shape[0], stride=A.shape[0] * A.shape[1]),
-            MultiArrayDimension(label="cols", size=A.shape[1], stride=A.shape[1])
-        ]
-        msg_A.data = A_flat.tolist()
+    plt.scatter(start[0], start[1], color='green', s=50, zorder=10)
+    plt.gca().set_xlim([0.0, 5.0])
+    plt.gca().set_ylim([0.0, 5.0])
 
-        # Prepare Float64MultiArray for b
-        msg_b = Float64MultiArray()
-        msg_b.layout.dim = [
-            MultiArrayDimension(label="rows", size=b.shape[0], stride=b.shape[0])
-        ]
-        msg_b.data = b.tolist()
-
-        # Publish A and b
-        pub.publish(msg_A)
-        pub.publish(msg_b)
-        rospy.loginfo("Published A and b to /iris_polytope (periodic)")
+    if show:
+        plt.grid(True)
+        plt.show()
 
 def irispy_node():
     rospy.init_node('irispy_node', anonymous=True)
-    # Create publisher for A and b
-    pub = rospy.Publisher('/iris_polytope', Float64MultiArray, queue_size=10)
     rospy.loginfo("IRISpy node started")
     try:
-        A, b = test_random_obstacles_2d(pub=pub)
-        # Set up timer to publish every 2 seconds
-        if A is not None and b is not None:
-            rospy.Timer(rospy.Duration(2), lambda event: publish_polytope_callback(event, pub, A, b))
+        test_random_obstacles_2d(show=True)
     except rospy.ROSInterruptException:
         rospy.logerr("Node interrupted")
     except Exception as e:
         rospy.logerr("Error: %s", str(e))
-    
-    rospy.spin()
 
 if __name__ == '__main__':
     irispy_node()

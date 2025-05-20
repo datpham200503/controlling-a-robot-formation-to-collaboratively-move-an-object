@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(local_motion_planning)
-
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
 
@@ -11,37 +10,29 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
-  geometry_msgs
-  message_generation
 )
 
-# add_message_files(
-#   FILES
-#   DynamicObstacles.msg
-#   DynamicObstacle.msg
-#   OptimalConfiguration.msg
-# )
+# Find SNOPT library
+set(SNOPT_DIR "/home/dat/libsnopt7_cpp")
+include_directories(${SNOPT_DIR})
+link_directories(${SNOPT_DIR})
 
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-#   geometry_msgs
-# )
+find_package(Eigen3 REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR})
 
-# catkin_package(
-#   CATKIN_DEPENDS
-#   roscpp
-#   rospy
-#   std_msgs
-#   geometry_msgs
-#   message_runtime
-# )
+catkin_package(
+  CATKIN_DEPENDS roscpp std_msgs
+)
 
-# include_directories(
-#   ${catkin_INCLUDE_DIRS}
-# )
+include_directories(
+  ${catkin_INCLUDE_DIRS}
+)
 
-# catkin_install_python(PROGRAMS
-#     scripts/dynamic_obstacle_processor.py
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+catkin_install_python(
+  PROGRAMS 
+    scripts/local_motion_planning.py
+    scripts/plot_local_path.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
+# add_executable(sntoya src/sntoya.cpp)
+# target_link_libraries(sntoya ${catkin_LIBRARIES} snopt7_cpp)

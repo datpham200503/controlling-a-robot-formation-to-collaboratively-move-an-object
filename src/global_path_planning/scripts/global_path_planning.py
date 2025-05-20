@@ -170,9 +170,12 @@ def global_path_planning():
             # rospy.loginfo("Điểm ngẫu nhiên được chọn: p=%s", p)
             if p is None:
                 # rospy.loginfo("Không tìm thấy điểm ngẫu nhiên hợp lệ")
-                break
+                T, polytopes = shortest_path_wrapper(G)
+                return T, polytopes
+
 
             A_p, b_p = compute_polytope(obstacles, p, bounds)
+            zinit = np.array([p[0], p[1], 0.0, 0.0, 0.0, 0.0])
             success = process_new_polytope(A_p, b_p, p, G, P, L_P, zinit, iteration + 1)
             if not success:
                 continue

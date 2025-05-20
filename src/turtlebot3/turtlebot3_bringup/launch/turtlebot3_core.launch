@@ -1,9 +1,13 @@
 <launch>
   <arg name="multi_robot_name" default=""/>
 
-  <node pkg="rosserial_python" type="serial_node.py" name="turtlebot3_core" output="screen">
-    <param name="port" value="/dev/ttyACM0"/>
+  <node pkg="rosserial_python" type="serial_node.py" name="myRobot_core" output="screen">
+    <param name="port" value="/dev/ttyUSB0"/>
     <param name="baud" value="115200"/>
     <param name="tf_prefix" value="$(arg multi_robot_name)"/>
+  </node>
+  <node pkg="mpu_6050_driver" type="imu_node.py" name="myRobot_imu">
+  </node>
+  <node pkg="update_odometry" type="update_odom.py" name="myRobot_odom">
   </node>
 </launch>

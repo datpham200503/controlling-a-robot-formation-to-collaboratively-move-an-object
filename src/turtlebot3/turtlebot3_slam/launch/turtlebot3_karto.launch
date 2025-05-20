@@ -2,9 +2,12 @@
   <!-- Arguments -->
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
   <arg name="configuration_basename" default="turtlebot3_lds_2d.lua"/>
-
+  <node pkg="laser_filters" type="scan_to_scan_filter_chain" name="laser_filter">
+    <rosparam command="load" file="$(find turtlebot3_slam)/config/my_laser_config.yaml" />  
+  </node>
   <!-- slam_karto -->
   <node pkg="slam_karto" type="slam_karto" name="slam_karto" output="screen">
+    <remap from="scan" to="scan_filtered"/>
     <rosparam command="load" file="$(find turtlebot3_slam)/config/karto_mapper_params.yaml" />
   </node>
 </launch>
