@@ -18,6 +18,41 @@ def compute_polytope(obstacles, start, bounds, require_containment=False, requir
         rospy.loginfo("Region: %s (could not access A and b)", region)
     return A, b
 
+def compute_formation_vertices(z, ru):
+    t_x, t_y, theta = z[0], z[1], z[2]
+    l_r, w_r = ru[9], ru[10]
+
+    three_angles = [theta, 2 * np.pi / 3 + theta, 4 * np.pi / 3 + theta]
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
+
+    vertices = []
+
+    for i in range(3):
+        x_local = ru[2 * i]
+        y_local = ru[2 * i + 1]
+        x_global = t_x + cos_theta * x_local - sin_theta * y_local
+        y_global = t_y + sin_theta * x_local + cos_theta * y_local
+        vertices.append((x_global, y_global))
+
+    for i in range(3):
+        theta_i = z[3 + i] + three_angles[i]
+        cos_theta_i = np.cos(theta_i)
+        sin_theta_i = np.sin(theta_i)
+        x_g, y_g = vertices[i]
+        a_i = ru[6 + i]
+
+        x_center = x_g + (a_i + l_r / 2) * cos_theta_i
+        y_center = y_g + (a_i + l_r / 2) * sin_theta_i
+
+        local_corners = [(l_r/2, w_r/2), (-l_r/2, w_r/2), (-l_r/2, -w_r/2), (l_r/2, -w_r/2)]
+        for x_local, y_local in local_corners:
+            x_rotated = x_center + cos_theta_i * x_local - sin_theta_i * y_local
+            y_rotated = y_center + sin_theta_i * x_local + cos_theta_i * y_local
+            vertices.append((x_rotated, y_rotated))
+    
+    return vertices
+
 def intersect_polytopes(A_s, b_s, A_g, b_g):
     A = np.vstack((A_s, A_g))
     b = np.hstack((b_s, b_g))

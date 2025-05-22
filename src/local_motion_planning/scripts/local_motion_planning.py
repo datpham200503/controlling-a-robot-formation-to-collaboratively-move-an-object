@@ -23,40 +23,10 @@ def convert_obstacles_to_numpy(obstacles):
         converted_obstacles.append(coords)
     return converted_obstacles
 
-def compute_formation_vertices(z, ru):
-    t_x, t_y, theta = z[0], z[1], z[2]
-    l_r, w_r = ru[9], ru[10]
-
-    three_angles = [theta, 2 * np.pi / 3 + theta, 4 * np.pi / 3 + theta]
-    cos_theta = np.cos(theta)
-    sin_theta = np.sin(theta)
-
-    vertices = []
-
-    for i in range(3):
-        x_local = ru[2 * i]
-        y_local = ru[2 * i + 1]
-        x_global = t_x + cos_theta * x_local - sin_theta * y_local
-        y_global = t_y + sin_theta * x_local + cos_theta * y_local
-        vertices.append((x_global, y_global))
-
-    for i in range(3):
-        theta_i = z[3 + i] + three_angles[i]
-        cos_theta_i = np.cos(theta_i)
-        sin_theta_i = np.sin(theta_i)
-        x_g, y_g = vertices[i]
-        a_i = ru[6 + i]
-
-        x_center = x_g + (a_i + l_r / 2) * cos_theta_i
-        y_center = y_g + (a_i + l_r / 2) * sin_theta_i
-
-        local_corners = [(l_r/2, w_r/2), (-l_r/2, w_r/2), (-l_r/2, -w_r/2), (l_r/2, -w_r/2)]
-        for x_local, y_local in local_corners:
-            x_rotated = x_center + cos_theta_i * x_local - sin_theta_i * y_local
-            y_rotated = y_center + sin_theta_i * x_local + cos_theta_i * y_local
-            vertices.append((x_rotated, y_rotated))
-    
-    return vertices
+def angle_difference(angle2, angle1):
+    """Tính chênh lệch góc ngắn nhất giữa hai góc (rad)."""
+    diff = angle2 - angle1
+    return np.arctan2(np.sin(diff), np.cos(diff))
 
 def interpolate_path(z_curr, z_next, K):
     """Tạo các điểm nội suy giữa z_curr và z_next với K điểm trung gian."""
@@ -64,6 +34,8 @@ def interpolate_path(z_curr, z_next, K):
     for k in range(K + 2):
         alpha = k / (K + 1)
         t_k = z_curr[:2] + alpha * (z_next[:2] - z_curr[:2])
+        theta_k = z_curr[2:] + alpha * angle_difference(z_next[2:], z_curr[2:])
+        t_k = np.concatenate((t_k, theta_k))
         interpolated_points.append(t_k)
     return interpolated_points
 
@@ -83,7 +55,7 @@ def create_interpolated_path(T, z_values, distance_threshold=0.1):
         # Tạo điểm nội suy
         points = interpolate_path(z_curr, z_next, K)
         interpolated_path.extend(points[:-1])  # Tránh lặp điểm cuối
-    interpolated_path.append(z_values[T[-1]])  # Thêm điểm cuối
+    interpolated_path.append(z_values[-1])  # Thêm điểm cuối
     
     return interpolated_path, K_values
 
@@ -106,10 +78,51 @@ def create_pose_msg(x, y, theta, frame_id="map"):
     
     return pose_msg
 
+def get_robot_poses(z, ru, map_size):
+    """Tính toán vị trí trung tâm và hướng của từng robot từ các đỉnh đội hình."""
+    robot_poses = []
+    three_angles = [z[2], 2 * np.pi / 3 + z[2], 4 * np.pi / 3 + z[2]]
+    
+    t_x, t_y, theta = z[0], z[1], z[2]
+    l_r, w_r = ru[9], ru[10]
+
+    x_min, y_min = map_size[0]
+    x_max, y_max = map_size[1]
+
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
+
+    for i in range(3):
+        x_local = ru[2 * i]
+        y_local = ru[2 * i + 1]
+        x_global = t_x + cos_theta * x_local - sin_theta * y_local
+        y_global = t_y + sin_theta * x_local + cos_theta * y_local
+
+        theta_i = z[3 + i] + three_angles[i]
+        cos_theta_i = np.cos(theta_i)
+        sin_theta_i = np.sin(theta_i)
+        x_g = x_global 
+        y_g = y_global
+        a_i = ru[6 + i]
+
+        x_center = x_g + (a_i + l_r / 2) * cos_theta_i
+        y_center = y_g + (a_i + l_r / 2) * sin_theta_i
+        theta_g = z[3 + i] + three_angles[i]
+
+        # Chuyển đổi sang hệ tọa độ mới
+        x_new = y_center  # Trục x mới là y cũ
+        y_new = x_max - x_center  # Trục y mới là x_max - x cũ
+        theta_new = theta_g - np.pi / 2  # Điều chỉnh góc: trừ π/2 để tham chiếu từ trục x mới (hướng lên)
+        theta_new = np.arctan2(np.sin(theta_new), np.cos(theta_new))  # Chuẩn hóa góc về [-π, π]
+
+        robot_poses.append((x_new, y_new, theta_new))
+
+    return robot_poses
+
 def local_motion_planning():
     """Thuật toán local motion planning."""
     rospy.init_node('local_motion_planning_node', anonymous=True)
-    rate = rospy.Rate(0.5)
+    rate = rospy.Rate(1)
 
     pub_robots = [
         rospy.Publisher(f'/robot_{i+1}/goal_pose', PoseStamped, queue_size=10)
@@ -146,19 +159,19 @@ def local_motion_planning():
         a_i, a_i, a_i,
         l_r, w_r
     ]
-
+    
     interpolated_path, K_values = create_interpolated_path(T, z_values, distance_threshold=0.1)
-
+    # rospy.loginfo(f"Interpolated path: {interpolated_path}")
     z_pre = z_values[0]
     path_index = 1
     k_count = 1
     k_index = 0
     points_to_process = None
-
+    
     rospy.loginfo("Starting local motion planning...")
     while not rospy.is_shutdown():
     # Thực hiện tác vụ
-        if k_count <= K_values[k_index]:
+        if k_count <= K_values[k_index] + 1:
             A = np.array(polytopes[k_index]['A'])
             b = np.array(polytopes[k_index]['b'])
         else:
@@ -173,27 +186,8 @@ def local_motion_planning():
         if path_index + 1 <= len(interpolated_path):
             points_to_process = interpolated_path[path_index]
 
-        vertices = compute_formation_vertices(z=z_pre, ru=ru)
-        vertices_np = [np.array(v) for v in vertices]
-
-        start_point = np.array([z_pre[0], z_pre[1]])
-
-        required_pts = vertices_np.copy()
-        required_pts.append(np.array(points_to_process))
-
-        # A, b = compute_polytope(
-        #     obstacles=obstacles,
-        #     start=start_point,
-        #     bounds=bounds,
-        #     require_containment=True,
-        #     required_containment_pts=required_pts
-        # )
-        
-        # rospy.loginfo(f"Computed polytope A: {A}, b: {b}")
-
-        # rospy.loginfo(f"Using precomputed polytope A: {A}, b: {b}")
-        zinit = np.array([points_to_process[0], points_to_process[1], z_pre[2], z_pre[3], z_pre[4], z_pre[5]])
-        status_g, zg = formation(zinit, points_to_process, A, b)
+        zinit = np.array([points_to_process[0], points_to_process[1], points_to_process[2], points_to_process[3], points_to_process[4], points_to_process[5]])
+        status_g, zg = formation(zinit, points_to_process[:2], A, b)
         
         if status_g == 1 and zg is not None:
             # Publish zg as Float64MultiArray
@@ -201,6 +195,14 @@ def local_motion_planning():
             zg_msg.data = zg.tolist()  # Convert numpy array to list
             pub_formation.publish(zg_msg)
             rospy.loginfo(f"Published formation_goal: zg={zg.tolist()}")
+
+            robot_poses = get_robot_poses(zg, ru, map_size)
+
+            # Publish PoseStamped cho từng robot
+            for i, (x, y, theta) in enumerate(robot_poses):
+                pose_msg = create_pose_msg(x, y, theta)
+                pub_robots[i].publish(pose_msg)
+                rospy.loginfo(f"Published robot_{i+1}/goal_pose: x={x}, y={y}, theta={theta}")
 
             # Cập nhật z_pre thành zg cho điểm tiếp theo
             z_pre = zg
@@ -211,10 +213,10 @@ def local_motion_planning():
         path_index += 1
         k_count += 1
         
-        rospy.loginfo(f"K_values: {K_values}")
-        rospy.loginfo(f"path_index: {path_index}, k_count: {k_count}, k_index: {k_index}")
-        rospy.loginfo(f"z_pre: {z_pre}, points_to_process: {points_to_process}")
-        rospy.loginfo(f"polytope A: {A}, b: {b}")
+        # rospy.loginfo(f"K_values: {K_values}")
+        # rospy.loginfo(f"path_index: {path_index}, k_count: {k_count}, k_index: {k_index}")
+        # rospy.loginfo(f"z_pre: {z_pre}, points_to_process: {points_to_process}")
+        # rospy.loginfo(f"polytope A: {A}, b: {b}")
 
         rate.sleep()
 

@@ -143,11 +143,19 @@ def main():
             ax.add_patch(Polygon(verts[:3], closed=True, edgecolor='blue', facecolor='blue', alpha=0.5))
             for i in range(3):
                 start = 3 + 4 * i
-                ax.add_patch(Polygon(verts[start:start + 4], closed=True, edgecolor='blue', facecolor='blue', alpha=0.5))
+                robot_vertices = verts[start:start + 4]
+                ax.add_patch(Polygon(robot_vertices, closed=True, edgecolor='blue', facecolor='blue', alpha=0.5))
+                # Tính trung tâm robot để đặt số thứ tự
+                x_center = sum(v[0] for v in robot_vertices) / 4
+                y_center = sum(v[1] for v in robot_vertices) / 4
+                ax.text(x_center, y_center, str(i + 1), color='white', fontsize=12, ha='center', va='center', weight='bold')
             last_zg = z
             plt.pause(0.01)
 
         rate.sleep()
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except rospy.ROSInterruptException:
+        rospy.loginfo("Formation visualizer node terminated.")

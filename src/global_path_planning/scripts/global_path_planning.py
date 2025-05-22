@@ -6,7 +6,7 @@ import json
 from snopt import formation
 from plot_formation import plot_path_planning
 from planning_functions import (compute_polytope, intersect_polytopes, sample_random_point,
-                              compute_centroid, euclidean_distance, process_new_polytope,
+                              compute_formation_vertices, euclidean_distance, process_new_polytope,
                               shortest_path_wrapper)
 
 def load_config(file_path):
@@ -88,6 +88,8 @@ def global_path_planning():
         start_centroid = np.array(config['start_centroid'])
         goal_centroid = np.array(config['goal_centroid'])
         map_size = config['map']
+        object_radius = config['object_radius']
+        robot_shape = config['robot_shape']
 
         G = {'V': [], 'E': [], 'zs': None, 'zg': None}
         P = {'A': [], 'b': []}
@@ -98,7 +100,19 @@ def global_path_planning():
         G['zs'] = 0
 
         bounds = irispy.Polyhedron.from_bounds(map_size[0], map_size[1])
-        A_s, b_s = compute_polytope(obstacles, start_centroid, bounds)
+        a_i = robot_shape['a_i']
+        l_r = robot_shape['l_r']
+        w_r = robot_shape['w_r']
+
+        ru = [
+            object_radius * np.cos(0.0), object_radius * np.sin(0.0),
+            object_radius * np.cos(2 * np.pi / 3), object_radius * np.sin(2 * np.pi / 3),
+            object_radius * np.cos(4 * np.pi / 3), object_radius * np.sin(4 * np.pi / 3),
+            a_i, a_i, a_i,
+            l_r, w_r
+        ]
+        required_pts = np.array(compute_formation_vertices(initial_config, ru))
+        A_s, b_s = compute_polytope(obstacles, start_centroid, bounds, require_containment=True, required_containment_pts=required_pts)
         P['A'].append(A_s)
         P['b'].append(b_s)
 
@@ -159,7 +173,7 @@ def global_path_planning():
                 if len(T) > 0:
                     rospy.loginfo("Tìm thấy đường khả thi qua P_s ∩ P_g: T=%s", T)
                     
-                    save_path_to_json(T, polytopes, '/home/dat/catkin_ws/src/global_path_planning/config/global_path.json')
+                    save_path_to_json(T, polytopes, G, '/home/dat/catkin_ws/src/global_path_planning/config/global_path.json')
                     if plot:
                         plot_path_planning(map_size, initial_config, zg, P, G, obstacles)
                     return T, polytopes

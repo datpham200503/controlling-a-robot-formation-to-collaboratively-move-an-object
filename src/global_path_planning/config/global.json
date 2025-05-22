@@ -13,8 +13,8 @@
             ]
         }
     ],
-    "initial_configuration": [1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-    "start_centroid": [1.0, 1.0],
+    "initial_configuration": [1.0, 0.8, 0.0, 0.0, 0.0, 0.0],
+    "start_centroid": [1.0, 0.8],
     "goal_centroid": [4.0, 4.0],
     "object_radius": 0.15,
     "robot_shape": {
