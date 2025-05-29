@@ -131,6 +131,10 @@ def local_motion_planning():
 
     pub_formation = rospy.Publisher('/formation_goal', Float64MultiArray, queue_size=10)
 
+    while pub_formation.get_num_connections() == 0:
+        rospy.loginfo("Waiting for subscriber to connect to /formation_goal...")
+        rospy.sleep(0.5)
+
     data_config = load_json('/home/dat/catkin_ws/src/global_path_planning/config/global.json')
     data_path = load_json('/home/dat/catkin_ws/src/global_path_planning/config/global_path.json')
 

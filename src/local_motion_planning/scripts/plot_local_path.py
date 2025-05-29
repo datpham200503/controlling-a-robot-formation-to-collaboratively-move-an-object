@@ -78,6 +78,7 @@ def compute_formation_vertices(z, ru, robot_dims):
 
 def formation_callback(msg):
     global latest_zg
+    rospy.loginfo("Received formation_goal: %s", msg.data)
     if len(msg.data) != 6:
         rospy.logwarn("Malformed formation_goal received")
         return
