@@ -2,6 +2,7 @@
 
 import rospy
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
+from std_msgs.msg import Bool
 import tf
 import math
 from collections import deque
@@ -12,7 +13,7 @@ class RobotGoalManager:
         rospy.init_node('robot_goal_manager', anonymous=True)
         self.rate = rospy.Rate(5)  # 5Hz
 
-        # Parameters for goal checking (similar to cal_robot_move.py)
+        # Parameters for goal checking
         self.distance_threshold_x = rospy.get_param('~distance_threshold_x', 0.05)
         self.distance_threshold_y = rospy.get_param('~distance_threshold_y', 0.05)
         self.angle_threshold = rospy.get_param('~angle_threshold', 0.1)
@@ -22,7 +23,7 @@ class RobotGoalManager:
         self.current_poses = [None] * self.num_robots
         self.current_goals = [None] * self.num_robots
         self.goal_queues = [deque() for _ in range(self.num_robots)]
-        self.last_goal_times = [rospy.Time.now() for _ in range(self.num_robots)]
+        self.first_goals_reached = False  # Track if all robots have reached their first goals
 
         # TF listener for coordinate transformations
         self.tf_listener = tf.TransformListener()
@@ -34,7 +35,7 @@ class RobotGoalManager:
             robot_id = i + 1
             # Subscribe to /robot_i/amcl_pose
             self.amcl_pose_subs.append(
-                rospy.Subscriber(f'/robot_{robot_id}/amcl_pose', 
+                rospy.Subscriber(f'/robot{robot_id}/amcl_pose', 
                                PoseWithCovarianceStamped, 
                                lambda msg, idx=i: self.amcl_pose_callback(msg, idx))
             )
@@ -46,8 +47,10 @@ class RobotGoalManager:
             )
 
         # Publishers for current goals of each robot
-        self.goal_pubs = [rospy.Publisher(f'/robot_{i+1}/goal', PoseStamped, queue_size=10) 
+        self.goal_pubs = [rospy.Publisher(f'/robot{i+1}/goal', PoseStamped, queue_size=10) 
                          for i in range(self.num_robots)]
+        # Publisher for signaling all robots have reached first goals
+        self.all_goals_reached_pub = rospy.Publisher('/all_goals_reached', Bool, queue_size=10)
 
     def amcl_pose_callback(self, msg, robot_idx):
         """Callback for AMCL pose updates of a specific robot."""
@@ -56,18 +59,23 @@ class RobotGoalManager:
     def goal_pose_callback(self, msg, robot_idx):
         """Callback for new goal pose of a specific robot."""
         current_time = rospy.Time.now()
-        # If a current goal is being processed, add new goal to queue
-        if self.current_goals[robot_idx] is not None:
-            self.goal_queues[robot_idx].append(msg)
-            rospy.loginfo("Robot %d: New goal received, added to queue. Queue size: %d", 
-                         robot_idx + 1, len(self.goal_queues[robot_idx]))
-        else:
+        if self.first_goals_reached:
+            # After first goals reached, publish new goals immediately
             self.current_goals[robot_idx] = msg
-            self.last_goal_times[robot_idx] = current_time
-            rospy.loginfo("Robot %d: New goal set: x=%f, y=%f", 
+            rospy.loginfo("Robot %d: New goal received and published: x=%f, y=%f", 
                          robot_idx + 1, msg.pose.position.x, msg.pose.position.y)
-            # Publish new goal to /robot_i/goal topic
             self.goal_pubs[robot_idx].publish(msg)
+        else:
+            # Before first goals reached, queue new goals
+            if self.current_goals[robot_idx] is not None:
+                self.goal_queues[robot_idx].append(msg)
+                rospy.loginfo("Robot %d: New goal received, added to queue. Queue size: %d", 
+                             robot_idx + 1, len(self.goal_queues[robot_idx]))
+            else:
+                self.current_goals[robot_idx] = msg
+                rospy.loginfo("Robot %d: New goal set: x=%f, y=%f", 
+                             robot_idx + 1, msg.pose.position.x, msg.pose.position.y)
+                self.goal_pubs[robot_idx].publish(msg)
 
     def get_yaw(self, quaternion):
         """Convert quaternion to yaw angle."""
@@ -91,15 +99,13 @@ class RobotGoalManager:
             goal_pose_stamped.header.stamp = rospy.Time(0)
             goal_pose_stamped.pose = self.current_goals[robot_idx].pose
 
-            # Assume base_footprint frame for each robot is /robot_i/base_footprint
-            transformed_goal = self.tf_listener.transformPose(f"robot_{robot_idx + 1}/base_footprint", 
+            transformed_goal = self.tf_listener.transformPose(f"robot{robot_idx + 1}/base_footprint", 
                                                             goal_pose_stamped)
 
             dx = transformed_goal.pose.position.x
             dy = transformed_goal.pose.position.y
             angle_error = self.get_yaw(transformed_goal.pose.orientation)
 
-            # Check if robot is within thresholds
             if (abs(dx) < self.distance_threshold_x and 
                 abs(dy) < self.distance_threshold_y and 
                 abs(angle_error) < self.angle_threshold):
@@ -127,22 +133,24 @@ class RobotGoalManager:
                 if self.current_goals[i] is not None:
                     self.goal_pubs[i].publish(self.current_goals[i])
 
-            # Process new goals only when all robots have reached their current goals
-            if self.all_robots_reached_goals():
-                for i in range(self.num_robots):
-                    if self.current_goals[i] is not None:
-                        # Clear current goal
-                        self.current_goals[i] = None
-                        # Get next goal from queue if available
-                        if self.goal_queues[i]:
-                            self.current_goals[i] = self.goal_queues[i].popleft()
-                            self.last_goal_times[i] = rospy.Time.now()
-                            rospy.loginfo("Robot %d: Processing next goal from queue: x=%f, y=%f", 
-                                         i + 1, 
-                                         self.current_goals[i].pose.position.x, 
-                                         self.current_goals[i].pose.position.y)
-                            # Publish new goal to /robot_i/goal
-                            self.goal_pubs[i].publish(self.current_goals[i])
+            if not self.first_goals_reached:
+                # Check if all robots have reached their first goals
+                if self.all_robots_reached_goals():
+                    self.first_goals_reached = True
+                    rospy.loginfo("All robots reached their first goals, switching to immediate goal publishing")
+                    # Publish signal to /all_goals_reached
+                    self.all_goals_reached_pub.publish(Bool(data=True))
+                    # Process next goals if available
+                    for i in range(self.num_robots):
+                        if self.current_goals[i] is not None:
+                            self.current_goals[i] = None
+                            if self.goal_queues[i]:
+                                self.current_goals[i] = self.goal_queues[i].popleft()
+                                rospy.loginfo("Robot %d: Processing next goal from queue: x=%f, y=%f", 
+                                             i + 1, 
+                                             self.current_goals[i].pose.position.x, 
+                                             self.current_goals[i].pose.position.y)
+                                self.goal_pubs[i].publish(self.current_goals[i])
 
             self.rate.sleep()
 

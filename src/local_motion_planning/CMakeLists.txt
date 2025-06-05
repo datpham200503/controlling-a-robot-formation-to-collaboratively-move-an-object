@@ -33,6 +33,7 @@ catkin_install_python(
     scripts/local_motion_planning.py
     scripts/plot_local_path.py
     scripts/goal_manager.py
+    scripts/person_detector.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 # add_executable(sntoya src/sntoya.cpp)
