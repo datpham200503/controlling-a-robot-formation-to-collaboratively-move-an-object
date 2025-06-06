@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
+from matplotlib.patches import Polygon, Ellipse  # Added: For ellipsoid plotting
 import json
 import rospy
 from std_msgs.msg import Float64MultiArray
@@ -44,7 +44,10 @@ robot_dims = [l_r, w_r]
 
 # === Biến đồng bộ hình vẽ ===
 latest_zg = None
+latest_polytope = None
+latest_dynamic_obstacle = None  # Added
 lock = threading.Lock()
+dynamic_obstacle_lock = threading.Lock()  # Added
 
 def compute_formation_vertices(z, ru, robot_dims):
     t_x, t_y, theta = z[0], z[1], z[2]
@@ -85,6 +88,50 @@ def formation_callback(msg):
     with lock:
         latest_zg = np.array(msg.data)
 
+def dynamic_obstacle_callback(msg):  # Added
+    """Callback để nhận tọa độ vật cản động."""
+    global latest_dynamic_obstacle
+    if len(msg.data) != 8:
+        rospy.logwarn("Received malformed dynamic obstacle data: expected 8 values, got %d", len(msg.data))
+        with dynamic_obstacle_lock:
+            latest_dynamic_obstacle = None
+        return
+    try:
+        coords = np.array(msg.data).reshape(4, 2).T  # Shape (2, 4): [[x1, x2, x3, x4], [y1, y2, y3, y4]]
+        with dynamic_obstacle_lock:
+            latest_dynamic_obstacle = coords
+        rospy.loginfo("Received dynamic obstacle: %s", coords)
+    except Exception as e:
+        rospy.logwarn("Failed to process dynamic obstacle data: %s", str(e))
+        with dynamic_obstacle_lock:
+            latest_dynamic_obstacle = None
+
+def polytope_callback(msg):
+    global latest_polytope
+    rospy.loginfo("Received polytope_data: %s", msg.data)
+    if not msg.data:
+        rospy.logwarn("Empty polytope data received")
+        with lock:
+            latest_polytope = None
+        return
+    try:
+        A_rows = int(msg.data[0])
+        A_cols = int(msg.data[1])
+        A_flat = msg.data[2:2 + A_rows * A_cols]
+        b_flat = msg.data[2 + A_rows * A_cols:2 + A_rows * A_cols + A_rows]
+        ellipsoid_D = msg.data[2 + A_rows * A_cols + A_rows:2 + A_rows * A_cols + A_rows + 2]  # Added
+        ellipsoid_C_flat = msg.data[2 + A_rows * A_cols + A_rows + 2:2 + A_rows * A_cols + A_rows + 6]  # Added
+        A = np.array(A_flat).reshape(A_rows, A_cols) if A_rows > 0 else None
+        b = np.array(b_flat) if A_rows > 0 else None
+        ellipsoid_D = np.array(ellipsoid_D)
+        ellipsoid_C = np.array(ellipsoid_C_flat).reshape(2, 2) if len(ellipsoid_C_flat) == 4 else np.eye(2)  # Added
+        with lock:
+            latest_polytope = {'A': A, 'b': b, 'ellipsoid_D': ellipsoid_D, 'ellipsoid_C': ellipsoid_C}  # Added
+    except Exception as e:
+        rospy.logwarn(f"Failed to process polytope data: {str(e)}")
+        with lock:
+            latest_polytope = None
+
 def draw_static_elements(ax):
     ax.clear()
     x_min, y_min = map_size[0]
@@ -95,13 +142,20 @@ def draw_static_elements(ax):
     ax.set_title("Robot Formations and Polytopes")
     ax.grid(True)
 
-    # Obstacles
+    # Static Obstacles
     for obs in obstacles:
         coords = list(zip(obs['coordinates'][0], obs['coordinates'][1]))
         polygon = Polygon(coords, closed=True, edgecolor='black', facecolor='gray')
         ax.add_patch(polygon)
 
-    # Polytopes
+    # Dynamic Obstacle
+    with dynamic_obstacle_lock:  # Added
+        if latest_dynamic_obstacle is not None:  # Added
+            coords = list(zip(latest_dynamic_obstacle[0], latest_dynamic_obstacle[1]))  # Added
+            polygon = Polygon(coords, closed=True, edgecolor='black', facecolor='gray')  # Added
+            ax.add_patch(polygon)  # Added
+
+    # Static Polytopes
     x = np.linspace(x_min - 1, x_max + 1, 400)
     y = np.linspace(y_min - 1, y_max + 1, 400)
     X, Y = np.meshgrid(x, y)
@@ -121,9 +175,11 @@ def draw_static_elements(ax):
             ax.add_patch(Polygon(verts[start:start + 4], closed=True, edgecolor=color, facecolor=color, alpha=0.5))
 
 def main():
-    global latest_zg
+    global latest_zg, latest_polytope
     rospy.init_node('formation_visualizer', anonymous=True)
     rospy.Subscriber('/formation_goal', Float64MultiArray, formation_callback, queue_size=10)
+    rospy.Subscriber('/polytope_data', Float64MultiArray, polytope_callback, queue_size=10)
+    rospy.Subscriber('/dynamic_obstacle', Float64MultiArray, dynamic_obstacle_callback, queue_size=10)  # Added
 
     fig, ax = plt.subplots()
     plt.ion()
@@ -133,24 +189,40 @@ def main():
     plt.pause(0.01)
 
     last_zg = None
-    rate = rospy.Rate(5)  # 5 Hz
+    last_polytope = None
+    rate = rospy.Rate(5)
     while not rospy.is_shutdown():
         with lock:
             z = latest_zg.copy() if latest_zg is not None else None
+            polytope = latest_polytope.copy() if latest_polytope is not None else None
 
         if z is not None and (last_zg is None or not np.allclose(z, last_zg)):
             draw_static_elements(ax)
+            # Draw dynamic polytope if available
+            if polytope is not None and polytope['A'] is not None and polytope['b'] is not None:
+                x = np.linspace(map_size[0][0] - 1, map_size[1][0] + 1, 400)
+                y = np.linspace(map_size[0][1] - 1, map_size[1][1] + 1, 400)
+                X, Y = np.meshgrid(x, y)
+                Z = np.ones_like(X)
+                for i in range(len(polytope['A'])):
+                    Z *= (polytope['A'][i, 0] * X + polytope['A'][i, 1] * Y <= polytope['b'][i])
+                ax.contourf(X, Y, Z, levels=[0.5, 1], colors=['lightblue'], alpha=0.5)
+                # ax.plot(polytope['start_point'][0], polytope['start_point'][1], 'go', label='Start Point' if last_polytope is None else '')  # Commented out: Replaced with ellipsoid
+            # Draw formation
             verts = compute_formation_vertices(z, ru, robot_dims)
             ax.add_patch(Polygon(verts[:3], closed=True, edgecolor='blue', facecolor='blue', alpha=0.5))
             for i in range(3):
                 start = 3 + 4 * i
                 robot_vertices = verts[start:start + 4]
                 ax.add_patch(Polygon(robot_vertices, closed=True, edgecolor='blue', facecolor='blue', alpha=0.5))
-                # Tính trung tâm robot để đặt số thứ tự
                 x_center = sum(v[0] for v in robot_vertices) / 4
                 y_center = sum(v[1] for v in robot_vertices) / 4
                 ax.text(x_center, y_center, str(i + 1), color='white', fontsize=12, ha='center', va='center', weight='bold')
+            # Add legend only once
+            if last_zg is None:
+                ax.legend()
             last_zg = z
+            last_polytope = polytope
             plt.pause(0.01)
 
         rate.sleep()
