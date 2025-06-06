@@ -9,13 +9,16 @@ class GoalToAmclSimulator:
     def __init__(self):
         # Initialize ROS node
         rospy.init_node('goal_to_amcl_simulator', anonymous=True)
-        self.rate = rospy.Rate(5)  # 5 Hz
+        self.rate = rospy.Rate(5)  # 5 Hz for main loop
 
         # Number of robots
         self.num_robots = 3
 
         # Store latest goals for each robot
         self.latest_goals = [None] * self.num_robots
+
+        # Track first goal for each robot
+        self.first_goal_received = [False] * self.num_robots
 
         # Publishers for AMCL poses
         self.amcl_pubs = [
@@ -38,12 +41,27 @@ class GoalToAmclSimulator:
         # Covariance matrix for AMCL pose (small values for simulation)
         self.covariance = np.diag([0.01, 0.01, 0.0, 0.0, 0.0, 0.001]).flatten().tolist()
 
+        # Track last publish time
+        self.last_publish_time = rospy.Time.now()
+
     def goal_callback(self, msg, robot_idx):
         """Callback for goal messages."""
         self.latest_goals[robot_idx] = msg
         rospy.loginfo("Robot %d: Received goal at x=%f, y=%f, z=%f",
                       robot_idx + 1, msg.pose.position.x, msg.pose.position.y,
                       msg.pose.orientation.z)
+        # Publish immediately for first goal
+        if not self.first_goal_received[robot_idx]:
+            amcl_msg = self.create_amcl_pose_msg(msg)
+            self.amcl_pubs[robot_idx].publish(amcl_msg)
+            rospy.loginfo("Robot %d: Published initial AMCL pose at x=%f, y=%f",
+                          robot_idx + 1, amcl_msg.pose.pose.position.x,
+                          amcl_msg.pose.pose.position.y)
+            transform_msg = self.create_transform_msg(msg, robot_idx)
+            self.tf_broadcaster.sendTransform(transform_msg)
+            rospy.loginfo("Robot %d: Published initial TF transform from map to robot%d/base_footprint",
+                          robot_idx + 1, robot_idx + 1)
+            self.first_goal_received[robot_idx] = True
 
     def create_amcl_pose_msg(self, goal_pose):
         """Create PoseWithCovarianceStamped from PoseStamped."""
@@ -67,22 +85,26 @@ class GoalToAmclSimulator:
         return transform
 
     def run(self):
-        """Main loop to publish AMCL poses and TF transforms."""
+        """Main loop to publish AMCL poses and TF transforms every 5 seconds."""
         while not rospy.is_shutdown():
-            for i in range(self.num_robots):
-                if self.latest_goals[i] is not None:
-                    # Publish AMCL pose
-                    amcl_msg = self.create_amcl_pose_msg(self.latest_goals[i])
-                    self.amcl_pubs[i].publish(amcl_msg)
-                    rospy.loginfo("Robot %d: Published AMCL pose at x=%f, y=%f",
-                                  i + 1, amcl_msg.pose.pose.position.x,
-                                  amcl_msg.pose.pose.position.y)
+            current_time = rospy.Time.now()
+            # Check if 5 seconds have passed since last publish
+            if (current_time - self.last_publish_time).to_sec() >= 5.0:
+                for i in range(self.num_robots):
+                    if self.latest_goals[i] is not None:
+                        # Publish AMCL pose
+                        amcl_msg = self.create_amcl_pose_msg(self.latest_goals[i])
+                        self.amcl_pubs[i].publish(amcl_msg)
+                        rospy.loginfo("Robot %d: Published AMCL pose at x=%f, y=%f",
+                                      i + 1, amcl_msg.pose.pose.position.x,
+                                      amcl_msg.pose.pose.position.y)
 
-                    # Publish TF transform
-                    transform_msg = self.create_transform_msg(self.latest_goals[i], i)
-                    self.tf_broadcaster.sendTransform(transform_msg)
-                    rospy.loginfo("Robot %d: Published TF transform from map to robot%d/base_footprint",
-                                  i + 1, i + 1)
+                        # Publish TF transform
+                        transform_msg = self.create_transform_msg(self.latest_goals[i], i)
+                        self.tf_broadcaster.sendTransform(transform_msg)
+                        rospy.loginfo("Robot %d: Published TF transform from map to robot%d/base_footprint",
+                                      i + 1, i + 1)
+                self.last_publish_time = current_time
             self.rate.sleep()
 
 if __name__ == '__main__':
