@@ -10,12 +10,11 @@ from tf.transformations import quaternion_from_euler
 from std_msgs.msg import Float64MultiArray
 import threading
 
-# === Biến đồng bộ cho vật cản động ===
 latest_dynamic_obstacle = None
 dynamic_obstacle_lock = threading.Lock()
 
 def load_json(file_path):
-    """Đọc dữ liệu từ file JSON."""
+
     with open(file_path, 'r') as f:
         data = json.load(f)
     return data
@@ -28,12 +27,12 @@ def convert_obstacles_to_numpy(obstacles):
     return converted_obstacles
 
 def angle_difference(angle2, angle1):
-    """Tính chênh lệch góc ngắn nhất giữa hai góc (rad)."""
+
     diff = angle2 - angle1
     return np.arctan2(np.sin(diff), np.cos(diff))
 
 def interpolate_path(z_curr, z_next, K):
-    """Tạo các điểm nội suy giữa z_curr và z_next với K điểm trung gian."""
+
     interpolated_points = []
     for k in range(K + 2):
         alpha = k / (K + 1)
@@ -44,7 +43,7 @@ def interpolate_path(z_curr, z_next, K):
     return interpolated_points
 
 def create_interpolated_path(T, z_values, distance_threshold=0.1):
-    """Tạo danh sách các điểm nội suy với khoảng cách ~10 cm."""
+
     interpolated_path = []
     K_values = []
     
@@ -61,7 +60,7 @@ def create_interpolated_path(T, z_values, distance_threshold=0.1):
     return interpolated_path, K_values
 
 def create_pose_msg(x, y, theta, frame_id="map"):
-    """Tạo PoseStamped message từ x, y, theta."""
+
     pose_msg = PoseStamped()
     pose_msg.header.frame_id = frame_id
     pose_msg.header.stamp = rospy.Time.now()
@@ -79,7 +78,7 @@ def create_pose_msg(x, y, theta, frame_id="map"):
     return pose_msg
 
 def get_robot_poses(z, ru, map_size):
-    """Tính toán vị trí trung tâm và hướng của từng robot từ các đỉnh đội hình."""
+
     robot_poses = []
     three_angles = [z[2], 2 * np.pi / 3 + z[2], 4 * np.pi / 3 + z[2]]
     
@@ -119,26 +118,26 @@ def get_robot_poses(z, ru, map_size):
     return robot_poses
 
 def compute_ellipsoid_from_vertices(vertices):
-    """Tạo elip nhỏ nhất chứa các đỉnh được cung cấp."""
+
     vertices = np.array(vertices)
-    # Tính tâm elip (trung bình các đỉnh)
+
     centroid = np.mean(vertices, axis=0)
-    # Tính bán kính elip (khoảng cách lớn nhất từ tâm đến đỉnh)
+
     distances = np.linalg.norm(vertices - centroid, axis=1)
     radius = np.max(distances)
-    # Tạo elip sử dụng irispy.Ellipsoid.fromNSphere
+
     ellipsoid = irispy.Ellipsoid.fromNSphere(centroid, radius)
     return ellipsoid
 
 def dynamic_obstacle_callback(msg):
-    """Callback để nhận tọa độ vật cản động."""
+
     global latest_dynamic_obstacle
     if len(msg.data) != 8:
         rospy.logwarn("Received malformed dynamic obstacle data: expected 8 values, got %d", len(msg.data))
         return
     try:
-        # Định dạng: [x1, y1, x2, y2, x3, y3, x4, y4]
-        coords = np.array(msg.data).reshape(4, 2).T  # Shape (2, 4): [[x1, x2, x3, x4], [y1, y2, y3, y4]]
+
+        coords = np.array(msg.data).reshape(4, 2).T 
         with dynamic_obstacle_lock:
             latest_dynamic_obstacle = coords
         rospy.loginfo("Received dynamic obstacle: %s", coords)
@@ -148,7 +147,7 @@ def dynamic_obstacle_callback(msg):
             latest_dynamic_obstacle = None
 
 def local_motion_planning():
-    """Thuật toán local motion planning."""
+
     rospy.init_node('local_motion_planning_node', anonymous=True)
     rate = rospy.Rate(2)
 
@@ -209,7 +208,7 @@ def local_motion_planning():
             ellipsoid = compute_ellipsoid_from_vertices(vertices)
             rospy.loginfo(f"Computing polytope for point {path_index} with ellipsoid center={ellipsoid.getD()}, radius={ellipsoid.getC()[0,0]}")
             
-            # Tạo danh sách obstacles bao gồm cả vật cản động nếu có
+
             current_obstacles = obstacles.copy()
             with dynamic_obstacle_lock:
                 if latest_dynamic_obstacle is not None:
@@ -257,9 +256,8 @@ def local_motion_planning():
             path_index += 1
             k_count += 1
         else:
-            # rospy.logwarn(f"Formation failed for point {path_index}: status={status_g}, zg={zg}")  # Commented out: Modified logging
-            rospy.logwarn(f"Formation failed for point {path_index}: status={status_g}, zg={zg}. Continuing to calculate.")  # Added
-            # break  # Commented out: Removed to continue loop
+            # rospy.logwarn(f"Formation failed for point {path_index}: status={status_g}, zg={zg}")
+            rospy.logwarn(f"Formation failed for point {path_index}: status={status_g}, zg={zg}. Continuing to calculate.")
         
         rate.sleep()
 

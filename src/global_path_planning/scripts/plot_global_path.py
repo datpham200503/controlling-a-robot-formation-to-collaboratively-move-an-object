@@ -65,12 +65,12 @@ def plot_path_planning(map_size, z_init, zg, P, G, obstacles , T):
             Z *= (A[i, 0] * X + A[i, 1] * Y <= b[i])
         ax.contourf(X, Y, Z, levels=[0.5, 1], colors=['lightgray'], alpha=0.3)
 
-    # Vẽ đội hình robot với màu sắc khác nhau
+
     for idx, z in enumerate(G['V']):
-        # Xác định màu dựa trên vị trí
-        if idx == 0 or idx == len(G['V']) - 1:  # Đầu hoặc cuối
+
+        if idx == 0 or idx == len(G['V']) - 1:
             color = 'orange'
-        else:  # Ở giữa
+        else:
             color = 'green'
 
         vertices = compute_formation_vertices(z, ru, robot_dims)
@@ -102,7 +102,7 @@ def plot_path_planning(map_size, z_init, zg, P, G, obstacles , T):
     plt.legend()
     plt.show()
 
-# Đọc dữ liệu từ file global.json
+
 global_json_path = '/home/dat/catkin_ws/src/global_path_planning/config/global.json'
 try:
     with open(global_json_path, 'r') as file:
@@ -122,7 +122,7 @@ except KeyError as e:
     print(f"Error: Missing key {e} in {global_json_path}. Please ensure the file has 'map', 'initial_configuration', 'obstacles', 'object_radius', and 'robot_shape'.")
     exit(1)
 
-# Đọc dữ liệu từ file global_path.json
+
 global_path_json_path = '/home/dat/catkin_ws/src/global_path_planning/config/global_path.json'
 try:
     with open(global_path_json_path, 'r') as file:
@@ -142,5 +142,5 @@ except KeyError as e:
     print(f"Error: Missing key {e} in {global_path_json_path}. Please ensure the file has 'polytopes' and 'z_values'.")
     exit(1)
 
-# Gọi hàm để vẽ
+
 plot_path_planning(map_size, z_init, zg, P, G, obstacles, T)

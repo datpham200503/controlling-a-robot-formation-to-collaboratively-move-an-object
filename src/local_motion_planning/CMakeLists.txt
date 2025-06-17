@@ -33,6 +33,7 @@ catkin_install_python(
     scripts/local_motion_planning.py
     scripts/local_motion_planning_simulation.py
     scripts/goal_to_amcl_simulator.py
+    scripts/plot_run_time.py
     scripts/plot_local_path.py
     scripts/goal_manager.py
     scripts/person_detector.py

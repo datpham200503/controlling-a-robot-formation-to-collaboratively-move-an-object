@@ -22,25 +22,18 @@ def convert_obstacles_to_numpy(obstacles):
     return converted_obstacles
 
 def save_path_to_json(T, polytopes, G, file_path):
-    """
-    Save T, polytopes, and corresponding z values to a JSON file.
-    """
     try:
-        # Ensure T is a list of Python integers
         if not isinstance(T, list):
             T = list(T)
-        T = [int(x) for x in T]  # Convert uint64 or other types to Python int
-        # Convert polytopes to JSON-serializable format
+        T = [int(x) for x in T]
         polytopes_serializable = []
         for i, (A, b) in enumerate(polytopes):
-            # Handle A
             if A is None:
                 A_list = []
             elif isinstance(A, np.ndarray) and A.size > 0:
                 A_list = A.tolist()
             else:
                 A_list = []
-            # Handle b
             if b is None:
                 b_list = []
             elif isinstance(b, np.ndarray) and b.size > 0:
@@ -51,7 +44,7 @@ def save_path_to_json(T, polytopes, G, file_path):
                 "A": A_list,
                 "b": b_list
             })
-        # Convert z values corresponding to T
+
         z_values = []
         for idx in T:
             z = G['V'][idx]
@@ -60,20 +53,20 @@ def save_path_to_json(T, polytopes, G, file_path):
             else:
                 z_list = []
             z_values.append(z_list)
-        # Create data dictionary
+
         data = {
             "T": T,
             "polytopes": polytopes_serializable,
             "z_values": z_values
         }
-        # Write to JSON file
+
         with open(file_path, 'w') as f:
             json.dump(data, f, indent=4)
         rospy.loginfo("Saved path to %s", file_path)
         # rospy.loginfo("G: %s", G)
     except Exception as e:
         rospy.logerr("Failed to save path to %s: %s", file_path, str(e))
-        raise  # Re-raise for debugging
+        raise 
 
 def global_path_planning():
     rospy.init_node('global_path_planning_node', anonymous=True)

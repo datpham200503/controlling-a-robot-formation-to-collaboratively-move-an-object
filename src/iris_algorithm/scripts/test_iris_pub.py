@@ -8,17 +8,17 @@ from matplotlib.patches import Polygon
 def test_random_obstacles_2d(show=False):
     bounds = irispy.Polyhedron.from_bounds([0, 0], [5, 5])
     required_containment_pts = [np.array([0.11, 2.5])]
-    # Define two fixed obstacles
+
     obstacles = [
         # Obstacle 1
         np.array([
             [0.75, 1.15, 1.15, 0.75],
-            [1.75, 1.75, 2.05, 2.05]   # y coordinates
+            [1.75, 1.75, 2.05, 2.05]   
         ]),
         # Obstacle 2
         np.array([
             [3.5, 3.9, 3.9, 3.5],
-            [3.05, 3.05, 3.35, 3.35]  # y coordinates
+            [3.05, 3.05, 3.35, 3.35]  
         ])
     ]
     
@@ -35,7 +35,7 @@ def test_random_obstacles_2d(show=False):
     except AttributeError:
         rospy.loginfo("Region: %s (could not access A and b)", region)
 
-    # Draw the polytope, ellipsoid, and obstacles
+
     polyhedron.draw2d()
     region.getEllipsoid().draw2d()
     

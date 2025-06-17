@@ -12,7 +12,6 @@ def compute_formation_vertices(z, ru, robot_dims):
 
     vertices = []
 
-    # Tính 3 đỉnh của tam giác vật thể
     for i in range(3):
         x_local = ru[2 * i]
         y_local = ru[2 * i + 1]
@@ -20,7 +19,6 @@ def compute_formation_vertices(z, ru, robot_dims):
         y_global = t_y + sin_theta * x_local + cos_theta * y_local
         vertices.append((x_global, y_global))
 
-    # Tính các đỉnh robot (3 robot, mỗi robot 4 đỉnh)
     for i in range(3):
         theta_i = z[3 + i] + three_angles[i]
         cos_theta_i = np.cos(theta_i)
@@ -42,18 +40,17 @@ def compute_formation_vertices(z, ru, robot_dims):
 def plot_formation(vertices, A, b, obstacles=None, vertices_optimized=None):
     fig, ax = plt.subplots()
     
-    # Vẽ tam giác vật thể ban đầu
+
     triangle = Polygon(vertices[:3], closed=True, edgecolor='blue', facecolor='blue', label='Object', zorder=3)
     ax.add_patch(triangle)
 
-    # Vẽ robot ban đầu
+
     for i in range(3):
         start = 3 + 4 * i
         robot_vertices = vertices[start:start + 4]
         rect = Polygon(robot_vertices, closed=True, edgecolor='green', facecolor='green', label='Robot' if i == 0 else "", zorder=3)
         ax.add_patch(rect)
 
-    # Vẽ vùng khả thi (Ax <= b)
     x = np.linspace(-1, 6, 400)
     y = np.linspace(-1, 6, 400)
     X, Y = np.meshgrid(x, y)
@@ -62,7 +59,7 @@ def plot_formation(vertices, A, b, obstacles=None, vertices_optimized=None):
         Z *= (A[i, 0] * X + A[i, 1] * Y <= b[i])
     ax.contourf(X, Y, Z, levels=[0.5, 1], colors=['lightgray'], alpha=0.5)
 
-    # Vẽ vật cản
+
     if obstacles is not None:
         for idx, obs in enumerate(obstacles):
             obs_coords = list(zip(obs[0], obs[1]))
@@ -70,7 +67,7 @@ def plot_formation(vertices, A, b, obstacles=None, vertices_optimized=None):
             polygon = Polygon(obs_coords, closed=True, edgecolor='black', facecolor='gray', label=label, zorder=2)
             ax.add_patch(polygon)
 
-    # Vẽ đội hình tối ưu nếu có
+
     if vertices_optimized is not None:
         triangle2 = Polygon(vertices_optimized[:3], closed=True, edgecolor='red', facecolor='red', label='Optimized Object', zorder=4)
         ax.add_patch(triangle2)
@@ -88,9 +85,8 @@ def plot_formation(vertices, A, b, obstacles=None, vertices_optimized=None):
     plt.grid(True)
     plt.show()
 
-# Dữ liệu đầu vào (cập nhật từ log ROS)
 x = [1.0, 4.0, 0.0, 0.0, 0.0, 0.0]       # Vị trí và góc quay ban đầu
-x_opt = [2.5, 1.5, 0.0, 0.0, 0.0, 0.0]   # Thông số tối ưu từ log
+x_opt = [2.5, 1.5, 0.0, 0.0, 0.0, 0.0]   # Thông số tối ưu
 
 ru = [
     0.15 * np.cos(0.0), 0.15 * np.sin(0.0),
@@ -101,7 +97,7 @@ ru = [
 ]
 robot_dims = ru[9:11]
 
-# Vùng khả thi mới từ log
+
 A = np.array([
     [ 0.89194486,  0.45214418],
     [ 0.99999852, -0.00171939],
@@ -116,21 +112,20 @@ b = np.array([3.96567985, 3.49818946, -1.34503768, 5.0, 5.0, 0.0, 0.0])
 obstacles = [
         # Obstacle 1
         np.array([
-            [0.5, 0.9, 0.9, 0.5],  # x coordinates
-            [0.75, 0.75, 1.05, 1.05]   # y coordinates
+            [0.5, 0.9, 0.9, 0.5], 
+            [0.75, 0.75, 1.05, 1.05]  
         ]),
         # Obstacle 2
         np.array([
-            [2.9, 3.3, 3.3, 2.9],  # x coordinates
-            [3.05, 3.05, 3.35, 3.35]   # y coordinates
+            [2.9, 3.3, 3.3, 2.9],  
+            [3.05, 3.05, 3.35, 3.35]  
         ]),
         np.array([
-            [3.0 + 0.5, 3.0 + 0.9, 3.0 + 0.9, 3.0 + 0.5],  # x coordinates
-            [0.75, 0.75, 1.05, 1.05]   # y coordinates
+            [3.0 + 0.5, 3.0 + 0.9, 3.0 + 0.9, 3.0 + 0.5],  
+            [0.75, 0.75, 1.05, 1.05]  
         ]),
     ]
 
-# Tính và vẽ lại
 vertices = compute_formation_vertices(x, ru, robot_dims)
 vertices_optimized = compute_formation_vertices(x_opt, ru, robot_dims)
 plot_formation(vertices, A, b, obstacles, vertices_optimized=vertices_optimized)

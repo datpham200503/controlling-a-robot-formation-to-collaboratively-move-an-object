@@ -11,7 +11,7 @@
 
 using namespace std;
 
-// Hàm tính vị trí các đỉnh của đội hình
+
 void computeFormationVertices(double* z, double* ru, double* robot_dims, vector<double>& vertices) {
     double t_x = z[0], t_y = z[1], theta = z[2];
     double theta_1 = z[3], theta_2 = z[4], theta_3 = z[5];
@@ -46,14 +46,14 @@ void computeFormationVertices(double* z, double* ru, double* robot_dims, vector<
     }
 }
 
-// Hàm mục tiêu và gradient
+
 void objectiveFunction(int* Status, int* n, double x[],
                       int* needF, int* neF, double F[],
                       int* needG, int* neG, double G[],
                       char* cu, int* lencu,
                       int iu[], int* leniu,
                       double ru[], int* lenru) {
-    // Lấy A và b từ ru
+
     Eigen::MatrixXd* A = reinterpret_cast<Eigen::MatrixXd*>(static_cast<std::uintptr_t>(ru[11]));
     Eigen::VectorXd* b = reinterpret_cast<Eigen::VectorXd*>(static_cast<std::uintptr_t>(ru[12]));
     if (!A || !b || A->rows() != b->size()) {
@@ -86,7 +86,7 @@ void objectiveFunction(int* Status, int* n, double x[],
         G[g_idx++] = 2 * (x[0] - g_x); // dF0/dx0
         G[g_idx++] = 2 * (x[1] - g_y); // dF0/dx1
 
-        // 3 robots, mỗi robot có 3 gradient entries cho mỗi ràng buộc
+
         for (int i = 0; i < 3; ++i) {
             double x_local = ru[2 * i];
             double y_local = ru[2 * i + 1];
@@ -101,7 +101,7 @@ void objectiveFunction(int* Status, int* n, double x[],
             }
         }
 
-        // 3 robots, mỗi robot có 4 góc, mỗi góc có 4 gradient entries
+
         for (int i = 0; i < 3; ++i) {
             double x_local = ru[2 * i];
             double y_local = ru[2 * i + 1];
@@ -144,10 +144,10 @@ void objectiveFunction(int* Status, int* n, double x[],
 class CollaborativeTransport {
 public:
     CollaborativeTransport() : nh_(), A_(nullptr), b_(nullptr), current_neF_(0), current_neG_(0) {
-        // Initialize ROS subscriber
+
         sub_ = nh_.subscribe("/iris_polytope", 10, &CollaborativeTransport::polytopeCallback, this);
 
-        // Initialize SNOPT parameters
+
         n_ = 6;
         lenA_ = 0;
         nS_ = 0;
@@ -155,14 +155,14 @@ public:
         ObjAdd_ = 0.0;
         Cold_ = 0;
 
-        // Allocate memory
+
         x_ = new double[n_];
         xlow_ = new double[n_];
         xupp_ = new double[n_];
         xmul_ = new double[n_];
         xstate_ = new int[n_];
 
-        // Khởi tạo các mảng với kích thước ban đầu (0 hoặc mặc định)
+
         neF_ = 0;
         neG_ = 0;
         lenG_ = 0;
@@ -178,8 +178,8 @@ public:
         jAvar_ = new int[lenA_];
         linearA_ = new double[lenA_];
 
-        // Initialize ru with space for A and b pointers
-        lenru_ = 13; // 11 original + 2 for pointers
+
+        lenru_ = 13; 
         ru_ = new double[lenru_];
         ru_[0] = 0.15 * cos(0.0); ru_[1] = 0.15 * sin(0.0);
         ru_[2] = 0.15 * cos(2 * M_PI / 3); ru_[3] = 0.15 * sin(2 * M_PI / 3);
@@ -188,7 +188,7 @@ public:
         ru_[9] = 0.3; ru_[10] = 0.3;
         ru_[11] = 0.0; ru_[12] = 0.0;
 
-        // Set bounds for x
+
         xlow_[0] = -1e20; xupp_[0] = 1e20;
         xlow_[1] = -1e20; xupp_[1] = 1e20;
         xlow_[2] = -1e20; xupp_[2] = 1e20;
@@ -197,12 +197,12 @@ public:
         xlow_[5] = -M_PI / 2; xupp_[5] = M_PI / 2;
         for (int i = 0; i < n_; ++i) xstate_[i] = 0;
 
-        // Set initial guess
+
         x_[0] = 3.0; x_[1] = 1.0;
         x_[2] = 0.0;
         x_[3] = 0.0; x_[4] = 0.0; x_[5] = 0.0;
 
-        // Initialize SNOPT
+
         ToyProb_.initialize("", 0);
         ToyProb_.setProbName("CollaborativeTransport");
         ToyProb_.setIntParameter("Derivative option", 1);
@@ -234,18 +234,18 @@ public:
 
 private:
     void setupSNOPT(int num_constraints) {
-        // Tính neF_ và neG_
-        neF_ = 1 + 15 * num_constraints; // 1 objective + 15 vertices * num_constraints
+
+        neF_ = 1 + 15 * num_constraints; 
         neG_ = 2 + // dF0/dx0, dF0/dx1
-               3 * num_constraints * 3 + // 3 robots * num_constraints * (dx0, dx1, dx2)
-               3 * 4 * num_constraints * 4; // 3 robots * 4 corners * num_constraints * (dx0, dx1, dx2, dx3+i)
+               3 * num_constraints * 3 + 
+               3 * 4 * num_constraints * 4; 
         lenG_ = neG_;
 
         ROS_INFO("Setting up SNOPT: neF_ = %d, neG_ = %d", neF_, neG_);
 
-        // Cấp phát lại bộ nhớ nếu cần
+
         if (current_neF_ != neF_) {
-            // Chỉ delete nếu con trỏ không null
+
             if (F_) delete[] F_;
             if (Flow_) delete[] Flow_;
             if (Fupp_) delete[] Fupp_;
@@ -267,36 +267,36 @@ private:
             current_neG_ = neG_;
         }
 
-        // Set bounds for F
-        Flow_[0] = -1e20; Fupp_[0] = 1e20; // Objective function
+
+        Flow_[0] = -1e20; Fupp_[0] = 1e20; 
         for (int i = 1; i < neF_; ++i) {
-            Flow_[i] = -1e20; Fupp_[i] = 0.0; // Constraints Ax <= b
+            Flow_[i] = -1e20; Fupp_[i] = 0.0; 
         }
         for (int i = 0; i < neF_; ++i) {
             Fmul_[i] = 0;
             Fstate_[i] = 0;
         }
 
-        // Setup Jacobian
+
         int g_idx = 0;
-        iGfun_[g_idx] = 0; jGvar_[g_idx] = 0; g_idx++; // dF0/dx0
-        iGfun_[g_idx] = 0; jGvar_[g_idx] = 1; g_idx++; // dF0/dx1
+        iGfun_[g_idx] = 0; jGvar_[g_idx] = 0; g_idx++; 
+        iGfun_[g_idx] = 0; jGvar_[g_idx] = 1; g_idx++; 
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < num_constraints; ++j) {
                 int F_idx = 1 + i * num_constraints + j;
-                iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 0; g_idx++; // dFi/dx0
-                iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 1; g_idx++; // dFi/dx1
-                iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 2; g_idx++; // dFi/dx2
+                iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 0; g_idx++; 
+                iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 1; g_idx++; 
+                iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 2; g_idx++; 
             }
         }
         for (int i = 0; i < 3; ++i) {
             for (int k = 0; k < 4; ++k) {
                 for (int j = 0; j < num_constraints; ++j) {
                     int F_idx = 1 + (3 + i * 4 + k) * num_constraints + j;
-                    iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 0; g_idx++; // dFi/dx0
-                    iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 1; g_idx++; // dFi/dx1
-                    iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 2; g_idx++; // dFi/dx2
-                    iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 3 + i; g_idx++; // dFi/dx(3+i)
+                    iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 0; g_idx++; 
+                    iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 1; g_idx++; 
+                    iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 2; g_idx++; 
+                    iGfun_[g_idx] = F_idx; jGvar_[g_idx] = 3 + i; g_idx++; 
                 }
             }
         }
@@ -354,21 +354,17 @@ private:
         ROS_INFO("Optimizing with %d constraints", num_constraints);
         setupSNOPT(num_constraints);
 
-        // Update ru_ with pointers to A_ and b_
         ru_[11] = static_cast<double>(reinterpret_cast<std::uintptr_t>(A_.get()));
         ru_[12] = static_cast<double>(reinterpret_cast<std::uintptr_t>(b_.get()));
         ROS_INFO("ru_[11] = %f, ru_[12] = %f", ru_[11], ru_[12]);
 
-        // Reset initial guess
         x_[0] = 2.5; x_[1] = 1.5;
         x_[2] = 0.0;
         x_[3] = 0.0; x_[4] = 0.0; x_[5] = 0.0;
 
-        // Check initial feasibility
         vector<double> vertices(30);
         computeFormationVertices(x_, &ru_[0], &ru_[9], vertices);
 
-        // Run SNOPT
         ROS_INFO("Calling SNOPT solve");
         int nInf;
         double sInf;
@@ -379,8 +375,7 @@ private:
                                     x_, xstate_, xmul_,
                                     F_, Fstate_, Fmul_,
                                     nS_, nInf, sInf);
- 
-        // Output results
+
         ROS_INFO("Optimized configuration:");
         ROS_INFO("t_x = %f, t_y = %f", x_[0], x_[1]);
         ROS_INFO("theta = %f", x_[2]);
@@ -398,7 +393,7 @@ private:
     std::shared_ptr<Eigen::VectorXd> b_;
     snoptProblemA ToyProb_;
     int n_, neF_, neG_, lenG_, lenA_, nS_;
-    int current_neF_, current_neG_; // Lưu kích thước hiện tại để tái cấp phát
+    int current_neF_, current_neG_;
     double ObjAdd_;
     int ObjRow_, Cold_;
     double *x_, *xlow_, *xupp_, *xmul_;

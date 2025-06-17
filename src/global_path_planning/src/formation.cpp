@@ -7,7 +7,7 @@
 
 using namespace std;
 
-// Hàm tính vị trí các đỉnh của đội hình
+
 void computeFormationVertices(double* z, double* ru, double* robot_dims, vector<double>& vertices) {
     double t_x = z[0], t_y = z[1], theta = z[2];
     double theta_1 = z[3], theta_2 = z[4], theta_3 = z[5];
@@ -42,14 +42,14 @@ void computeFormationVertices(double* z, double* ru, double* robot_dims, vector<
     }
 }
 
-// Hàm mục tiêu và gradient
+
 void objectiveFunction(int* Status, int* n, double x[],
                       int* needF, int* neF, double F[],
                       int* needG, int* neG, double G[],
                       char* cu, int* lencu,
                       int iu[], int* leniu,
                       double ru[], int* lenru) {
-    double g_x = ru[11], g_y = ru[12]; // Lấy g_x, g_y từ ru
+    double g_x = ru[11], g_y = ru[12]; 
     const double* A = reinterpret_cast<const double*>(static_cast<std::uintptr_t>(ru[13]));
     const double* b = reinterpret_cast<const double*>(static_cast<std::uintptr_t>(ru[14]));
     int num_constraints = static_cast<int>(ru[15]);
@@ -133,9 +133,9 @@ void objectiveFunction(int* Status, int* n, double x[],
     }
 }
 
-// Hàm formation để gọi từ Python
+
 extern "C" int formation(double* zinit, double* g, double* A, double* b, int m, double* zout) {
-    // Kiểm tra đầu vào
+
     if (m <= 0) return -1;
 
     // Khởi tạo SNOPT
@@ -207,10 +207,8 @@ extern "C" int formation(double* zinit, double* g, double* A, double* b, int m, 
         Fstate[i] = 0;
     }
 
-    // Thiết lập điểm khởi tạo
     for (int i = 0; i < n; ++i) x[i] = zinit[i];
 
-    // Thiết lập Jacobian
     int g_idx = 0;
     iGfun[g_idx] = 0; jGvar[g_idx] = 0; g_idx++; // dF0/dx0
     iGfun[g_idx] = 0; jGvar[g_idx] = 1; g_idx++; // dF0/dx1
@@ -234,7 +232,6 @@ extern "C" int formation(double* zinit, double* g, double* A, double* b, int m, 
         }
     }
 
-    // Giải bài toán
     int status = ToyProb.solve(Cold, neF, n, ObjAdd, ObjRow, objectiveFunction,
                                iAfun, jAvar, linearA, lenA,
                                iGfun, jGvar, neG,
@@ -243,10 +240,8 @@ extern "C" int formation(double* zinit, double* g, double* A, double* b, int m, 
                                F, Fstate, Fmul,
                                nS, nInf, sInf);
 
-    // Sao chép kết quả vào zout
     for (int i = 0; i < n; ++i) zout[i] = x[i];
 
-    // Dọn dẹp
     delete[] x;
     delete[] xlow;
     delete[] xupp;
@@ -264,5 +259,5 @@ extern "C" int formation(double* zinit, double* g, double* A, double* b, int m, 
     delete[] jGvar;
     delete[] ru;
 
-    return status; // Trả về trạng thái tối ưu hóa
+    return status; 
 }

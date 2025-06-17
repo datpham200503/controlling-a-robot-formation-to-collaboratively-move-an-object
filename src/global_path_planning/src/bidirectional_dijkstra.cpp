@@ -4,28 +4,25 @@
 #include <vector>
 #include <map>
 
-// Vô cực cho khoảng cách
 constexpr double INF = std::numeric_limits<double>::infinity();
 
-// Struct cho cạnh
 struct Edge {
-    uint64_t u, v; // Đỉnh đầu, cuối
-    double w;      // Trọng số (khoảng cách Euclidean)
-    uint64_t polytope_idx; // Chỉ số đa diện
+    uint64_t u, v; 
+    double w;      
+    uint64_t polytope_idx; 
 };
 
-// Struct cho đa diện (giả định đơn giản)
 struct Polytope {
-    uint64_t id; // ID đa diện
+    uint64_t id; 
 };
 
-// Struct cho kết quả
+
 struct PathResult {
-    std::vector<uint64_t> T; // Tập cấu hình
-    std::vector<Polytope> P; // Tập đa diện
+    std::vector<uint64_t> T; 
+    std::vector<Polytope> P; 
 };
 
-// Hàm kiểm tra kết nối giữa z_s và z_g (DFS)
+
 bool is_connected(const std::vector<std::vector<std::pair<uint64_t, double>>>& adj,
                   uint64_t z_s, uint64_t z_g, uint64_t n) {
     std::vector<bool> visited(n, false);
@@ -47,16 +44,16 @@ bool is_connected(const std::vector<std::vector<std::pair<uint64_t, double>>>& a
     return false;
 }
 
-// Hàm shortestPath chính
+
 PathResult shortestPath(uint64_t n, const std::vector<Edge>& edges,
                         const std::vector<Polytope>& polytopes,
                         uint64_t z_s, uint64_t z_g) {
-    // Khởi tạo danh sách kề
+
     std::vector<std::vector<std::pair<uint64_t, double>>> adj1(n);
     std::vector<std::vector<std::pair<uint64_t, double>>> adj2(n);
     std::map<std::pair<uint64_t, uint64_t>, uint64_t> edge_map;
 
-    // Thêm cạnh
+
     for (uint64_t i = 0; i < edges.size(); ++i) {
         const Edge& e = edges[i];
         adj1[e.u].push_back({e.v, e.w});
@@ -64,7 +61,7 @@ PathResult shortestPath(uint64_t n, const std::vector<Edge>& edges,
         edge_map[{e.u, e.v}] = i;
     }
 
-    // Kiểm tra kết nối
+
     if (!is_connected(adj1, z_s, z_g, n)) {
         return {{}, {}};
     }
@@ -169,7 +166,7 @@ PathResult shortestPath(uint64_t n, const std::vector<Edge>& edges,
         T.push_back(backward_path[i]);
     }
 
-    // Lấy đa diện P
+
     std::vector<Polytope> P;
     for (size_t i = 1; i < T.size(); i++) {
         auto it = edge_map.find({T[i-1], T[i]});
@@ -185,9 +182,9 @@ PathResult shortestPath(uint64_t n, const std::vector<Edge>& edges,
     return {T, P};
 }
 
-// Giao diện extern "C" cho ctypes
+
 extern "C" {
-    // Hàm trả về con trỏ đến PathResult
+
     void shortest_path(uint64_t n, // Số đỉnh
                        uint64_t m, // Số cạnh
                        uint64_t* edge_data, // Mảng [u1, v1, u2, v2, ...]
@@ -211,10 +208,8 @@ extern "C" {
             polytopes[i] = {polytope_ids[i]};
         }
 
-        // Gọi shortestPath
         PathResult result = shortestPath(n, edges, polytopes, z_s, z_g);
 
-        // Ghi kết quả
         *T_len = result.T.size();
         *P_len = result.P.size();
         for (uint64_t i = 0; i < *T_len; ++i) {
