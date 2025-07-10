@@ -1,0 +1,43 @@
+cmake_minimum_required(VERSION 3.0.2)
+project(local_motion_planning)
+## Compile as C++11, supported in ROS Kinetic and newer
+add_compile_options(-std=c++11)
+
+## Find catkin macros and libraries
+## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
+## is used, also find other catkin packages
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  rospy
+  std_msgs
+)
+
+# Find SNOPT library
+set(SNOPT_DIR "/home/dat/libsnopt7_cpp")
+include_directories(${SNOPT_DIR})
+link_directories(${SNOPT_DIR})
+
+find_package(Eigen3 REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR})
+
+catkin_package(
+  CATKIN_DEPENDS roscpp std_msgs
+)
+
+include_directories(
+  ${catkin_INCLUDE_DIRS}
+)
+
+catkin_install_python(
+  PROGRAMS 
+    scripts/local_motion_planning.py
+    scripts/local_motion_planning_simulation.py
+    scripts/goal_to_amcl_simulator.py
+    scripts/plot_run_time.py
+    scripts/plot_local_path.py
+    scripts/goal_manager.py
+    scripts/person_detector.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
+# add_executable(sntoya src/sntoya.cpp)
+# target_link_libraries(sntoya ${catkin_LIBRARIES} snopt7_cpp)

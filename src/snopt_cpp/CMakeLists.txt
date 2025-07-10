@@ -37,3 +37,6 @@ target_link_libraries(sntest ${catkin_LIBRARIES} snopt7_cpp)
 
 add_executable(snsubcriber_test src/snsubcriber_test.cpp)
 target_link_libraries(snsubcriber_test ${catkin_LIBRARIES} snopt7_cpp)
+
+add_executable(sntest_sub src/sntest_sub.cpp)
+target_link_libraries(sntest_sub ${catkin_LIBRARIES} snopt7_cpp)

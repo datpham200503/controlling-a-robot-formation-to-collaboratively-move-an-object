@@ -1,0 +1,14 @@
+<launch>
+    <node name="sub_laser_scan" pkg="mobile_ortacle" type="sub_laser_scan.py" output="screen">
+        <param name="eps" value="0.3" />
+        <param name="min_samples" value="10" />
+        <param name="velocity_threshold" value="0.02" />
+        <param name="max_match_distance" value="0.3" />
+        <param name="angle_std_threshold_deg" value="20" />
+        <param name="min_moving_points_ratio" value="0.6" />
+    </node>
+    <include file="$(find ira_laser_tools)/launch/laserscan_multi_merger.launch"> 
+  </include>
+  <node pkg="mobile_ortacle" type="build_laser_scan.py" name="Build_Scan">
+  </node>
+</launch>

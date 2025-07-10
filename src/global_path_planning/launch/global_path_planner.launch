@@ -1,0 +1,9 @@
+<launch>
+    <node pkg="global_path_planning" type="global_path_planning.py" name="global_path_planning">
+        <param name="type" value="first"/>
+        <param name="max_iterations" value="50"/>
+        <param name="plot" value="False"/>
+    </node>
+    <node pkg="global_path_planning" type="plot_global_path.py" name="plot_global_path">
+    </node>
+</launch>
